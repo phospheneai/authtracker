@@ -103,7 +103,7 @@ authtracker doctor          # is the backend reachable?
 
 ## Status
 
-Experimental (`0.0.x`). About 280 automated tests and nine runnable examples, run on macOS with MLflow (SQLite)
+Experimental. About 280 automated tests and nine runnable examples, run on macOS with MLflow (SQLite)
 and W&B offline. Not yet verified: a remote MLflow server, W&B online, NVIDIA GPUs, multi-GPU, Windows.
 
 ## Development
