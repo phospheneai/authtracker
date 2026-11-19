@@ -1,38 +1,54 @@
     [build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "authtracker"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Backend-independent, variable-configured experiment tracking and model versioning on top of MLflow."
 readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Phosphene AI" }]
 requires-python = ">=3.10"
 keywords = ["mlflow", "wandb", "experiment-tracking", "model-registry", "mlops", "machine-learning"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = ["pyyaml", "cloudpickle"]      # the backend is chosen with an extra: [mlflow], [mlflow-skinny] or [wandb]
+# the backend is chosen with an extra: [mlflow], [mlflow-skinny] or [wandb]
+dependencies = ["pyyaml>=6,<7", "cloudpickle>=3,<4"]
 
 [project.optional-dependencies]
-mlflow = ["mlflow>=3.0", "psutil"]            # the default backend: full MLflow (can also run a server or a local SQLite store)
-mlflow-skinny = ["mlflow-skinny>=3.0", "psutil"]   # light client: only sends runs to an existing MLflow server
-wandb = ["wandb>=0.19.10"]            # Weights & Biases backend
+mlflow = ["mlflow>=3.0,<4", "psutil"]            # the default backend: full MLflow (can also run a server or a local SQLite store)
+mlflow-skinny = ["mlflow-skinny>=3.0,<4", "psutil"]   # light client: only sends runs to an existing MLflow server
+wandb = ["wandb>=0.19.10,<1"]          # Weights & Biases backend
 gpu = ["pynvml"]                      # also chart NVIDIA GPU use in the system metrics
-dev = ["pytest>=7", "scikit-learn", "wandb>=0.19.10", "mlflow>=3.0", "psutil"]
+dev = ["pytest>=7", "ruff>=0.5", "scikit-learn", "wandb>=0.19.10,<1", "mlflow>=3.0,<4", "psutil"]
+
+[project.urls]
+Homepage = "https://github.com/phospheneai/authtracker"
+Source = "https://github.com/phospheneai/authtracker"
+Issues = "https://github.com/phospheneai/authtracker/issues"
 
 [project.scripts]
 authtracker = "authtracker.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.hatch.version]
+path = "src/authtracker/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/authtracker"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]

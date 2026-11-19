@@ -1,13 +1,33 @@
-# generated files: do not publish
+# Python
 __pycache__/
 *.py[cod]
-.pytest_cache/
+*.egg-info/
 build/
 dist/
-*.egg-info/
-.venv/
 
-# data written by the examples and by tracking tools
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
+
+# Secrets and credentials (never commit)
+.env
+.env.*
+*.pem
+*.key
+*credentials*.json
+
+# Data written by the examples and by tracking tools
 examples/data/
 mlruns/
 mlartifacts/
@@ -15,26 +35,10 @@ wandb/
 *.db
 .authtracker/
 
-# virtualenvs / env files
-venv/
-env/
-.env
-.env.*
+# Logs and local outputs
+*.log
 
-# test / coverage / tooling caches
-.coverage
-.coverage.*
-htmlcov/
-.tox/
-.mypy_cache/
-.ruff_cache/
-
-# packaging
-*.egg
-.eggs/
-
-# notebooks / editors / OS
-.ipynb_checkpoints/
+# OS / editor
+.DS_Store
 .idea/
 .vscode/
-.DS_Store
