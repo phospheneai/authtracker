@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.slow          # skipped by the release workflow: pytest -m "not slow"
+
 EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
 
 

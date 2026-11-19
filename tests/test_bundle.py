@@ -16,6 +16,8 @@ from authtracker import bundle  # noqa: E402
 from authtracker.backends.base import Backend  # noqa: E402
 from authtracker.settings import Settings  # noqa: E402
 
+pytestmark = pytest.mark.slow          # skipped by the release workflow: pytest -m "not slow"
+
 ARCH = '''
 import torch.nn as nn
 

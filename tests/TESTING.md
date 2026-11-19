@@ -7,12 +7,18 @@ What has been tested, and what is left for later. Update this file when you test
 ```
 pip install -e ".[dev]"
 pip install torch          # optional: without it the PyTorch tests are skipped
-pytest -n auto      # in parallel; plain `pytest` runs them one at a time
+pytest -n auto                 # everything, in parallel; plain `pytest` runs them one at a time
+pytest -n auto -m "not slow"   # what the release workflow runs
+pytest -n auto -m slow         # the slow end-to-end tests: the examples and the PyTorch bundle
 ```
 
 279 tests pass and 3 are skipped (a backend/parameter combination that does not apply). One at a time the run
 takes about 7 minutes, mostly MLflow start-up (each test makes its own database) and the examples (each is a
 real script). In parallel on 4 CPUs it takes about 3 minutes.
+
+The release workflow skips the 49 `slow` tests (the examples and `test_bundle.py`), which cuts its test run to about
+1.5 minutes on a 4-CPU machine. Those tests are still run by plain `pytest`, so run them before changing examples or
+bundles.
 
 | Area | Where |
 |---|---|

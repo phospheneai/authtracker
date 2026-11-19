@@ -60,6 +60,8 @@ docs/                this folder
 
 ```bash
 pytest -q -n auto                  # everything, in parallel (drop -n to debug one test)
+pytest -q -n auto -m "not slow"    # what the release workflow runs
+pytest -q -n auto -m slow          # only the slow end-to-end tests (the examples and the PyTorch bundle)
 pytest tests/test_simple.py -q     # one file
 pytest tests/test_examples.py -q   # the examples, as real scripts (about 3 minutes)
 ruff check src tests               # lint
@@ -77,7 +79,8 @@ connection per path. If you open a store from a test, use a new folder for each 
 
 ## Examples
 
-Every numbered script in `examples/` is run by `tests/test_examples.py`, which then opens the example's database
+The example tests and `test_bundle.py` are marked `slow`, so a release does not wait for them. Run them yourself before
+changing examples or bundles: `pytest -m slow`. Every numbered script in `examples/` is run by `tests/test_examples.py`, which then opens the example's database
 and checks what was recorded. A guard test fails if you add an example without a test. See
 [examples/README.md](../examples/README.md).
 
@@ -86,7 +89,7 @@ and checks what was recorded. A guard test fails if you add an example without a
 Releases are automatic. A push to `main` that changes `src/authtracker/**` runs
 `.github/workflows/release.yml`:
 
-1. installs `.[dev]` and CPU PyTorch and runs `pytest -n auto`;
+1. installs `.[dev]` and CPU PyTorch (pip downloads are cached between runs) and runs `pytest -n auto -m "not slow"`;
 2. bumps the patch number in `src/authtracker/__init__.py` (`0.0.3` becomes `0.0.4`);
 3. builds the wheel and sdist and checks them with `twine check --strict`;
 4. commits `chore: release <version> [skip ci]`, creates the annotated tag `<version>` (no `v`) whose message

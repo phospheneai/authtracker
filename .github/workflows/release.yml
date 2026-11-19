@@ -30,6 +30,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip                          # reuse downloaded wheels (MLflow, W&B, scikit-learn, torch) between runs
+          cache-dependency-path: pyproject.toml
 
       - name: Test
         run: |
@@ -37,7 +39,7 @@ jobs:
           pip install -e ".[dev]"
           # CPU-only PyTorch, so the bundle tests run instead of being skipped
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pytest -q -n auto   # tests run in parallel, one worker per CPU
+          pytest -q -n auto -m "not slow"   # in parallel, one worker per CPU; the slow end-to-end tests run locally
 
       - name: Bump patch version
         id: bump

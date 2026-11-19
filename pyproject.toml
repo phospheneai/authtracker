@@ -49,6 +49,7 @@ packages = ["src/authtracker"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: end-to-end tests (the examples, the PyTorch bundle). Run by plain `pytest`; the release workflow skips them with -m \"not slow\""]
 
 [tool.ruff]
 line-length = 100
