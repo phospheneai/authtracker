@@ -322,6 +322,8 @@ def test_the_manifest_says_where_the_code_came_from_without_secrets(make_net, tm
     assert "ghp_secret123" not in (out / "bundle.json").read_text()      # the token never reaches the manifest
     plain = tmp_path / "plain"
     monkeypatch.chdir(tmp_path)
+    # the script that is running (pytest) may itself live in a git checkout: point it somewhere that is not
+    monkeypatch.setattr(sys.modules["__main__"], "__file__", str(tmp_path / "script.py"), raising=False)
     bundle.build_pickle(net, plain, check=False)
     assert json.loads((plain / "bundle.json").read_text())["git"] is None   # not a repository: no guess
 

@@ -1,4 +1,4 @@
-"""The model class. It lives in its own file, so a bundle can ship it."""
+"""The model class. It lives in its own file so a bundle can ship it."""
 import torch.nn as nn
 
 

@@ -1,13 +1,12 @@
-# A training config. Everything outside the "authtracker:" block is saved as parameters of the run.
-authtracker:                 # where this run belongs (arguments to at.init(...) override these)
-  model: classifier-demo
-  experiment: full-demo
+# Settings of one training run. Everything outside the "authtracker:" block is saved as parameters.
+authtracker:                 # where the run belongs (arguments to at.init(...) override these)
+  model: churn
+  experiment: gradient-boosting
   tags:
     team: ml-platform
-
 task: binary-classification
-epochs: 8
 optimizer:
-  name: sgd-logistic-regression
-  loss: log_loss
-split: {train: 0.6, val: 0.2, test: 0.2}
+  name: gradient-boosting
+  learning_rate: 0.1
+  n_estimators: 50
+split: {train: 0.7, test: 0.3}
