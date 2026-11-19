@@ -33,7 +33,7 @@ for C in (0.1, 1.0, 10.0):
     at.start(f"C{C}", config={"C": C})            # one run per trial
     clf = LogisticRegression(C=C).fit(X, y)
     at.log({"accuracy": clf.score(X, y)})
-    at.save(clf)                                  # the model
+    at.log_model(clf)                             # the model
 
 best = at.best_run("model1", "demo", metric="accuracy")
 version = at.register(best)
@@ -58,7 +58,8 @@ fake-image                  <- model        (an MLflow experiment, a W&B project
 | `at.init(model, experiment)` | Opens the experiment. |
 | `at.start(name, config={...})` | Starts a run (one trial). |
 | `at.log({...})` | Logs metrics. |
-| `at.save(thing)` | Saves a file, folder, text or model. |
+| `at.save(thing)` | Saves files: a file, a folder or text. |
+| `at.log_model(model)` | Saves a model (or a file or folder as a model) so it can be versioned. |
 | `at.best_run(...)`, `at.register()`, `at.promote(...)`, `at.load(...)` | Pick, version and load a model. |
 
 Runs close when the script ends. In a notebook, call `at.finish()`.
@@ -81,8 +82,10 @@ GPU charts.
 
 ## More
 
-- **PyTorch models:** `at.save(net, flavor="bundle", init_args={...})` stores your architecture file and weights;
+- **PyTorch models:** `at.log_model(net, flavor="bundle", init_args={...})` stores your architecture file and weights;
   `at.load` gives your own class back. [Guide](https://github.com/phospheneai/authtracker/blob/main/docs/GUIDE.md#pytorch-models-as-a-bundle-plain-files-the-real-class-back)
+- **Files vs models:** `at.save("file")` stores files as artifacts. `at.log_model(model)` (or a file or folder) stores a
+  versioned model linked to its run. Add `experiment=True` to either to write to the experiment instead of the trial.
 - **Resume a run:** `at.init(..., resume=True)` continues an earlier run.
 - **Move to another server:** `authtracker export churn --out dir`, then `authtracker import dir` against the
   new server. Add `--all` for every model. MLflow only.

@@ -6,9 +6,10 @@ What authtracker does, grouped as major, minor and patch. See the README for usa
 
 Tracking
 - Three levels: model (an MLflow experiment), experiment (parent run), run (child run).
-- `init`, `start`, `log`, `save`, `finish`. No `with` blocks or run objects needed.
+- `init`, `start`, `log`, `save`, `log_model`, `finish`. No `with` blocks or run objects needed.
 - Metrics with an automatic step, or your own `step=`.
-- Params, tags, text, files and folders, all through `at.save`.
+- Params and tags. Text, files and folders as artifacts through `at.save`, which never takes a model.
+- `experiment=True` on `save`, `log`, `set_tags` and `log_model` writes to the experiment instead of the trial (`at.log({"best_lr": 0.01}, experiment=True)`).
 - Runs close when the script ends. If it crashes, the run is marked FAILED and the traceback is saved.
 - A `with` API (`authtracker.run`) for explicit scopes.
 
@@ -27,7 +28,9 @@ Reproducibility
 - Container image, ideally pinned by digest.
 
 Models
+- `at.log_model(model)` stores a model in MLflow's model section, linked to its run, so it can be registered, promoted and loaded.
 - MLflow flavors, with the flavor detected for you.
+- A file or folder as a model: `at.log_model("weights.pth")` or `at.log_model("checkpoints/")` stores the files (sub-folders kept) as a versioned model with no loader. `at.load` gives back a folder.
 - PyTorch bundle: `architecture.py`, `weights.pth`, `inference.py`, `requirements.txt`, `environment.txt` and `bundle.json`. Loads as plain PyTorch, with the weights loaded using `weights_only=True`.
 - Builders (`factory=`), extra files (`assets=`) and extra metadata (`extras=`).
 - A loaded model keeps its code, so you can fine-tune it and save it again.
@@ -44,6 +47,14 @@ Resume
 - Params can be repeated or added on resume, but not changed.
 - Files from earlier parts are kept (`.resume1`, `.resume2`).
 
+Moving between servers
+- `at.export_model` / `at.import_model` (and `authtracker export` / `import`) copy one model with its runs, metrics (every step), files, model files, versions and aliases to a plain folder and into another MLflow store.
+- `export_all` / `import_all` (`--all`) do it for every model. Run ids change and are kept in a tag; version numbers and aliases stay; an import never adds to a model that already has runs.
+
+Alerts
+- Optional webhook (`AUTHTRACKER_ALERT_WEBHOOK`): a JSON message when a run fails or is stopped, optionally when it finishes, and for your own `at.alert(...)`.
+- You choose the events with `AUTHTRACKER_ALERT_ON`. With no URL nothing is sent. The URL is masked everywhere and never logged. A broken webhook never stops training.
+
 Outages
 - Failed calls are retried.
 - If the server stays down, operations are queued on disk. `authtracker sync` uploads them later.
@@ -58,9 +69,11 @@ Outages
 - Pickle flavor, opt-in on save and on load: your own code is bundled, hashes are checked before unpickling, and the save checks it loads in a clean process.
 - Bundling a class defined in a script or notebook.
 - A hint when MLflow's traced-graph save fails because the model is on GPU.
-- Settings from `AUTHTRACKER_*` environment variables. Arguments to `init()` and `save()` always win.
+- Settings from `AUTHTRACKER_*` environment variables. Arguments to `init()` and the other calls always win.
 - Rules for required tags, allowed models and allowed metric names.
-- CLI: `authtracker config`, `doctor` and `sync`.
+- CLI: `authtracker config`, `doctor`, `sync`, `export`, `import` and `test-alert`.
+- `at.set_tracking_uri(uri)` and `at.get_tracking_uri()`, like MLflow's, override `AUTHTRACKER_TRACKING_URI` in code.
+- NVIDIA GPU charts come with the MLflow install (except on a Mac).
 - Files that look like secrets are left out of the saved patch and script. `save_code=False` turns code saving off.
 - `authtracker.testing.check_backend` to test a custom backend.
 
@@ -74,6 +87,8 @@ Outages
 - If the server can't be asked about an earlier run, a new run starts with a warning.
 - W&B offline mode works.
 - Needs Python 3.10+. Core dependencies are `pyyaml` and `cloudpickle`.
+- `at.save` and `at.log_model` refuse what they do not take (a model, a missing path, an empty folder, an unknown argument) with a message that names the right call.
+- A bundle's model is linked to its run the way MLflow links its own models.
 
 ## Limits
 
@@ -84,8 +99,8 @@ Outages
 - Any multi-GPU run (`DataParallel`, DDP or several nodes).
 
 - A real EC2, S3 or login-protected server.
-- CUDA, Windows and Linux.
+- CUDA and Windows. (Linux runs the tests in the release workflow.)
 - W&B online mode and registry.
 - How the MLflow UI shows repeated steps.
 
-The package is also not published, has no license and has no CI.
+The package is published on PyPI under Apache-2.0. A merge to `main` that changes `src/authtracker/` releases it automatically.

@@ -12,7 +12,7 @@ pytest -n auto -m "not slow"   # what the release workflow runs
 pytest -n auto -m slow         # the slow end-to-end tests: the examples and the PyTorch bundle
 ```
 
-300 tests are collected; all pass except 3 skipped (a backend/parameter combination that does not apply). One at a time the run
+325 tests pass and 4 are skipped (a backend/parameter combination that does not apply). One at a time the run
 takes about 7 minutes, mostly MLflow start-up (each test makes its own database) and the examples (each is a
 real script). In parallel on 4 CPUs it takes about 3 minutes, and about 1.5 minutes once MLflow's pip-requirements inference is
 switched off for the tests (see `tests/conftest.py`).

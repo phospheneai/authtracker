@@ -50,7 +50,7 @@ for C in (0.001, 1.0):
     f1 = f1_score(y_test, clf.predict(X_test))
     at.log({"f1": f1})
     at.save(f"trained with C={C:g}\n", name="notes.txt")
-    at.save(clf)
+    at.log_model(clf)
     version = at.register()
     scores[version] = f1
     at.promote("churn", version, "staging")
@@ -83,7 +83,7 @@ ok("the 'production' model loaded from the new store scores exactly what version
 
 at.init("churn", "after-the-move", dataset_version="v1")
 at.start("C=10", config={"C": 10})
-at.save(LogisticRegression(C=10, max_iter=500).fit(X_train, y_train))
+at.log_model(LogisticRegression(C=10, max_iter=500).fit(X_train, y_train))
 assert at.register() == "3"
 at.finish()
 ok("a new run registers version 3 on top of the imported versions")

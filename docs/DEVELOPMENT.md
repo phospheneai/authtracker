@@ -141,7 +141,8 @@ the rest of authtracker.
 **1. Implement `Backend`** (`authtracker/backends/base.py`). Nine methods are required:
 `ping`, `start_run`, `end_run`, `set_tags`, `log_params`, `log_metrics`, `log_artifact`,
 `get_run`, `search_runs`. That is enough for `init / start / log / save (files, text) / best_run`.
-Model and registry support is optional: implement `log_model`, `register`, `set_alias`, `get_alias`,
+Model and registry support is optional: implement `log_model` (and `log_model_dir` / `download_bundle` for PyTorch
+bundles, `log_model_files` / `download_model_files` for models that are just files), `register`, `set_alias`, `get_alias`,
 `version_run_id` and `load` when the platform has them. Anything left out raises a clear
 `BackendError` ("The X backend does not support the model registry") and nothing else breaks. The
 W&B backend is a real example: it implements the required methods and `log_model` only.

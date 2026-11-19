@@ -104,7 +104,7 @@ def test_register_current_run(s):
     at.init("m1", "e", settings=s)
     at.start("a")
     at.log({"f1": 0.9})
-    at.save(LogisticRegression().fit([[0], [1]], [0, 1]), flavor="sklearn")
+    at.log_model(LogisticRegression().fit([[0], [1]], [0, 1]), flavor="sklearn")
     v = at.register(settings=s)                       # no arguments: the current run
     at.promote("m1", v, "production", settings=s)
     assert at.load("m1", "production", settings=s).predict([[1]]).tolist() == [1]
@@ -230,11 +230,13 @@ def test_experiment_true_with_no_trial_started_is_the_experiment_anyway(s, tmp_p
     assert "f.txt" in _artifacts(s, experiment.id)
 
 
-def test_a_model_cannot_go_to_the_experiment(s):
+def test_save_takes_files_not_models(s):
     at.init("m1", "e1", dataset_version="v1", settings=s)
     at.start("r")
-    with pytest.raises(at.ValidationError, match="belongs to one run"):
-        at.save(object(), experiment=True)
+    with pytest.raises(at.ValidationError, match="at.log_model"):
+        at.save(object())                                          # a model object: the error says where to go
+    with pytest.raises(TypeError):
+        at.save("x", name="f.txt", log_model=True)                 # an unknown argument is an error, not ignored
 
 
 def test_experiment_true_needs_an_open_experiment():
@@ -265,3 +267,100 @@ def test_the_metric_name_rules_apply_to_the_experiment_too(s):
     at.start("r")
     with pytest.raises(at.ValidationError):
         at.log({"best_lr": 0.01}, experiment=True)
+
+
+# ------------------------------------------------------------------ at.log_model: a model in the model section, linked to the run
+def _model_tag(s, run_id):
+    from authtracker.backends import get_backend
+    return get_backend(s).get_run(run_id)["tags"].get("authtracker.model_uri")
+
+
+def test_log_model_stores_a_file_as_a_versioned_model_not_an_artifact(s, tmp_path):
+    weights = tmp_path / "weight.pth"
+    weights.write_text("fake weights")
+    at.init("m1", "e1", dataset_version="v1", settings=s)
+    trial = at.start("r")
+    assert at.log_model(str(weights))                              # returns the model's address
+    assert _model_tag(s, trial.id)                                 # the run points at it
+    assert "weight.pth" not in _artifacts(s, trial.id)             # it is a model, not a file on the run
+    version = at.register(settings=s)
+    at.promote("m1", version, "production", settings=s)
+    folder = at.load("m1", "production", settings=s)               # no loader: a folder with the files
+    assert open(os.path.join(folder, "weight.pth")).read() == "fake weights"
+
+
+def test_log_model_stores_a_folder_as_a_model(s, tmp_path):
+    (tmp_path / "ckpt" / "sub").mkdir(parents=True)
+    (tmp_path / "ckpt" / "a.bin").write_text("A")
+    (tmp_path / "ckpt" / "sub" / "b.bin").write_text("B")
+    at.init("m1", "e1", dataset_version="v1", settings=s)
+    at.start("r")
+    at.log_model(tmp_path / "ckpt")                                # a Path works too
+    at.promote("m1", at.register(settings=s), "production", settings=s)
+    folder = at.load("m1", "production", settings=s)
+    assert open(os.path.join(folder, "a.bin")).read() == "A"
+    assert open(os.path.join(folder, "sub", "b.bin")).read() == "B"
+
+
+def test_log_model_on_the_experiment_and_on_a_trial(s, tmp_path):
+    (tmp_path / "best.pth").write_text("best")
+    experiment = at.init("m1", "e1", dataset_version="v1", settings=s)
+    trial = at.start("r")
+    at.log_model(str(tmp_path / "best.pth"), experiment=True)       # a file model can go to the experiment at any time
+    assert _model_tag(s, experiment.id) and not _model_tag(s, trial.id)
+    version = at.register(experiment, settings=s)                    # register the experiment's own model
+    at.promote("m1", version, "production", settings=s)
+    assert open(os.path.join(at.load("m1", "production", settings=s), "best.pth")).read() == "best"
+
+
+def test_a_library_model_can_go_to_the_experiment_only_before_a_trial_starts(s):
+    from sklearn.linear_model import LogisticRegression
+    clf = LogisticRegression().fit([[0], [1]], [0, 1])
+    experiment = at.init("m1", "e1", dataset_version="v1", settings=s)
+    at.log_model(clf, experiment=True, flavor="sklearn")             # no trial open yet: the experiment is the innermost run
+    assert _model_tag(s, experiment.id)
+    at.start("r")
+    with pytest.raises(at.ValidationError, match="innermost run"):
+        at.log_model(clf, experiment=True, flavor="sklearn")
+
+
+def test_log_model_refuses_bad_input_clearly(s, tmp_path):
+    (tmp_path / "w.pth").write_text("x")
+    at.init("m1", "e1", dataset_version="v1", settings=s)
+    at.start("r")
+    with pytest.raises(at.ValidationError, match="does not exist"):
+        at.log_model(str(tmp_path / "missing.pth"))
+    with pytest.raises(at.ValidationError, match="only apply to a model object"):
+        at.log_model(str(tmp_path / "w.pth"), flavor="sklearn")      # options belong to model objects, not files
+
+
+def test_log_model_refuses_a_folder_with_no_files(s, tmp_path):
+    (tmp_path / "empty").mkdir()
+    (tmp_path / "only_dirs" / "a" / "b").mkdir(parents=True)
+    at.init("m1", "e1", dataset_version="v1", settings=s)
+    trial = at.start("r")
+    for folder in ("empty", "only_dirs"):
+        with pytest.raises(at.ValidationError, match="has no files"):
+            at.log_model(tmp_path / folder)
+    assert not _model_tag(s, trial.id), "nothing was stored"
+
+
+def test_a_symlinked_file_is_stored_with_its_content(s, tmp_path):
+    (tmp_path / "real.bin").write_text("real content")
+    (tmp_path / "pkg").mkdir()
+    os.symlink(tmp_path / "real.bin", tmp_path / "pkg" / "link.bin")
+    at.init("m1", "e1", dataset_version="v1", settings=s)
+    at.start("r")
+    at.log_model(tmp_path / "pkg")
+    at.promote("m1", at.register(settings=s), "production", settings=s)
+    assert open(os.path.join(at.load("m1", "production", settings=s), "link.bin")).read() == "real content"
+
+
+def test_save_and_log_model_do_different_jobs(s, tmp_path):
+    (tmp_path / "w.pth").write_text("x")
+    at.init("m1", "e1", dataset_version="v1", settings=s)
+    trial = at.start("r")
+    at.save(str(tmp_path / "w.pth"))                                 # a file: an artifact, not a model
+    assert "w.pth" in _artifacts(s, trial.id) and not _model_tag(s, trial.id)
+    with pytest.raises(at.ValidationError, match="no logged model"):
+        at.register(settings=s)                                      # so it cannot be registered

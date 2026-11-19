@@ -111,7 +111,7 @@ def test_missing_optional_features_give_clear_errors(memory):
     at.init("m1", "exp", settings=s)
     at.start("a")
     with pytest.raises(at.BackendError, match="MemoryBackend.*logging models"):
-        at.save(object())
+        at.log_model(object())
     with pytest.raises(at.BackendError, match="MemoryBackend.*model registry"):
         at.load("m1", "production", settings=s)
 

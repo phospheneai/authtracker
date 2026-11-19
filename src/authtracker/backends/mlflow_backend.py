@@ -77,7 +77,7 @@ def _pytorch_save_hint(error: Exception, flavor: str, kwargs: Dict[str, Any]):
     text = str(error)
     if "input_example is required" in text:
         return ("Saving a PyTorch model needs an example input, so it can be traced:\n"
-                "    at.save(net, input_example=batch.cpu().numpy())\n"
+                "    at.log_model(net, input_example=batch.cpu().numpy())\n"
                 "If the model cannot be traced, save it with serialization_format='pickle' instead "
                 "and ship the file that defines your model class: code_paths=['net.py'].")
     if type(error).__module__.split(".")[0] == "torch" or "pt2" in text:
@@ -86,7 +86,7 @@ def _pytorch_save_hint(error: Exception, flavor: str, kwargs: Dict[str, Any]):
                 "Typical causes: an `if` that depends on tensor values, or an operation that is not "
                 "supported. Save it as a pickle instead, and ship the file that defines your model "
                 "class so it can be loaded elsewhere:\n"
-                "    at.save(net, input_example=batch.cpu().numpy(), serialization_format='pickle', "
+                "    at.log_model(net, input_example=batch.cpu().numpy(), serialization_format='pickle', "
                 "code_paths=['net.py'])\n"
                 "Pickled models can run code when loaded, so only load models you trust.")
     return None
@@ -257,35 +257,52 @@ class MlflowBackend(Backend):
                                        order_by=[order], max_results=limit)
         return [self._summary(r) for r in runs]
 
-    def log_model_dir(self, run_id, local_dir):
-        """A folder kept as it is, inside an MLflow 'logged model' (so it can be registered)."""
-        from .. import bundle
+    def _log_logged_model(self, run_id, local_dir, model_type):
+        """A folder kept as it is, inside an MLflow 'logged model' (so it can be registered), and linked to the run
+        so the run's page lists it, like a model saved by MLflow itself."""
+        from mlflow.entities import LoggedModelOutput
         exp_id = self.client.get_run(run_id).info.experiment_id
         lm = self.client.create_logged_model(experiment_id=exp_id, name="model", source_run_id=run_id,
-                                             model_type=bundle.MODEL_TYPE)
+                                             model_type=model_type)
         try:
             self.client.log_model_artifacts(lm.model_id, local_dir)
         except Exception:
             self.client.finalize_logged_model(lm.model_id, "FAILED")
             raise
         self.client.finalize_logged_model(lm.model_id, "READY")
+        self.client.log_outputs(run_id, [LoggedModelOutput(model_id=lm.model_id, step=0)])
         uri = f"models:/{lm.model_id}"
         self.client.set_tag(run_id, TAG_MODEL_URI, uri)
         return uri
 
-    def download_bundle(self, name, alias, dst=None):
+    def log_model_dir(self, run_id, local_dir):
         from .. import bundle
+        return self._log_logged_model(run_id, local_dir, bundle.MODEL_TYPE)
+
+    def log_model_files(self, run_id, local_dir):
+        from .. import bundle
+        return self._log_logged_model(run_id, local_dir, bundle.FILES_TYPE)
+
+    def _download_model_of_type(self, name, alias, model_type, dst):
         try:
             source = self.client.get_model_version_by_alias(name, alias).source
         except mlflow.exceptions.MlflowException:
             return None
         if not source.startswith("models:/m-"):
             return None
-        if self.client.get_logged_model(source.split("/", 1)[1]).model_type != bundle.MODEL_TYPE:
+        if self.client.get_logged_model(source.split("/", 1)[1]).model_type != model_type:
             return None
         import tempfile
         return mlflow.artifacts.download_artifacts(
             artifact_uri=f"models:/{name}@{alias}", dst_path=dst or tempfile.mkdtemp(prefix="authtracker-load-"))
+
+    def download_bundle(self, name, alias, dst=None):
+        from .. import bundle
+        return self._download_model_of_type(name, alias, bundle.MODEL_TYPE, dst)
+
+    def download_model_files(self, name, alias, dst=None):
+        from .. import bundle
+        return self._download_model_of_type(name, alias, bundle.FILES_TYPE, dst)
 
     # ---- moving a model between stores
     def export_model(self, name, dest):

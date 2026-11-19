@@ -347,10 +347,10 @@ def test_save_register_load_with_pickle_through_the_registry(make_net, tmp_path,
     net.class_names = ["real", "fake"]
     at.init("pk", "e", dataset_version="v1", settings=s)
     at.start("only")
-    at.save(net, flavor="pickle", check=False)
+    at.log_model(net, flavor="pickle", check=False)
     v1 = at.register(settings=s)
     at.start("both")
-    at.save(net, flavor="bundle", init_args={"hidden": 8}, extras={"threshold": 0.3}, pickle=True, check=False)
+    at.log_model(net, flavor="bundle", init_args={"hidden": 8}, extras={"threshold": 0.3}, pickle=True, check=False)
     v2 = at.register(settings=s)
     at.promote("pk", v1, "pickle-only", settings=s)
     at.promote("pk", v2, "both", settings=s)

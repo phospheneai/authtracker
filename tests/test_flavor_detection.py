@@ -63,7 +63,7 @@ def test_a_custom_pytorch_model_saves_registers_and_loads(tmp_path):
     at.finish()
     at.init("tiny", "check", dataset_version="v1", settings=s)
     at.start("a")
-    at.save(net, input_example=X[:2].numpy())              # no flavor= needed
+    at.log_model(net, input_example=X[:2].numpy())              # no flavor= needed
     v = at.register(settings=s)
     at.promote("tiny", v, "production", settings=s)
     at.finish()
@@ -95,7 +95,7 @@ def test_a_model_on_a_gpu_is_saved_from_cpu_weights_and_put_back(tmp_path):
     at.finish()
     at.init("gpu", "check", dataset_version="v1", settings=s)
     at.start("a")
-    at.save(net, input_example=X.numpy())                       # a CPU example, a model on the GPU
+    at.log_model(net, input_example=X.numpy())                       # a CPU example, a model on the GPU
     v = at.register(settings=s)
     at.promote("gpu", v, "production", settings=s)
     at.finish()
@@ -120,7 +120,7 @@ def _torch_setup(tmp_path):
 def test_saving_a_pytorch_model_without_an_example_says_what_to_do(tmp_path):
     torch, nn, _ = _torch_setup(tmp_path)
     with pytest.raises(at.BackendError) as e:
-        at.save(nn.Linear(4, 2))
+        at.log_model(nn.Linear(4, 2))
     msg = str(e.value)
     assert "input_example=" in msg and "serialization_format='pickle'" in msg and "code_paths" in msg
 
@@ -141,10 +141,10 @@ def test_a_model_that_cannot_be_traced_says_what_to_do_and_the_fallback_works(tm
 
     net, X = Branchy().eval(), torch.randn(4, 4)
     with pytest.raises(at.BackendError) as e:
-        at.save(net, input_example=X.numpy())
+        at.log_model(net, input_example=X.numpy())
     assert "could not be traced" in str(e.value) and "serialization_format='pickle'" in str(e.value)
     assert e.value.__cause__ is not None                   # the original error is kept for debugging
-    at.save(net, input_example=X.numpy(), serialization_format="pickle")      # the advice works
+    at.log_model(net, input_example=X.numpy(), serialization_format="pickle")      # the advice works
     v = at.register(settings=s)
     at.promote("torch-errors", v, "production", settings=s)
     at.finish()
@@ -155,7 +155,7 @@ def test_a_model_that_cannot_be_traced_says_what_to_do_and_the_fallback_works(tm
 def test_the_real_module_can_be_loaded_back_for_more_training(tmp_path):
     torch, nn, s = _torch_setup(tmp_path)
     import mlflow
-    at.save(nn.Linear(4, 2), input_example=torch.randn(2, 4).numpy())
+    at.log_model(nn.Linear(4, 2), input_example=torch.randn(2, 4).numpy())
     v = at.register(settings=s)
     at.promote("torch-errors", v, "production", settings=s)
     at.finish()

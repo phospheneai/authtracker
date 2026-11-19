@@ -287,6 +287,13 @@ class ResilientBackend(Backend):
         return self._read("log_model_dir",
                           lambda: self.inner.log_model_dir(self._res(run_id), local_dir), run_id)
 
+    def log_model_files(self, run_id, local_dir):
+        return self._read("log_model_files",
+                          lambda: self.inner.log_model_files(self._res(run_id), local_dir), run_id)
+
+    def download_model_files(self, name, alias, dst=None):
+        return self._read("download_model_files", lambda: self.inner.download_model_files(name, alias, dst))
+
     def download_bundle(self, name, alias, dst=None):
         return self._read("download_bundle", lambda: self.inner.download_bundle(name, alias, dst))
 

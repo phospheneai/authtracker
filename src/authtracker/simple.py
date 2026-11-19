@@ -3,7 +3,7 @@
     at.init(model="fake-image", experiment="baseline", dataset_version="v1")   # level 2
     at.start("lr0.01", config={"lr": 0.01})                                    # level 3
     at.log({"loss": 0.4})
-    at.save(model)
+    at.log_model(model)
     at.finish()                                                                # optional
 
 Level 1 (the model) is the MLflow experiment. Runs close themselves when the script ends;
@@ -18,7 +18,7 @@ import sys
 from typing import Any, Dict, Mapping, Optional, Union
 
 from . import alerts as _alerts
-from . import configfile
+from . import bundle, configfile
 from . import dataset as dataset_module
 from .errors import AuthTrackerError, ValidationError
 from .run import Run
@@ -220,40 +220,61 @@ def set_tags(tags: Mapping[str, Any], *, experiment: bool = False) -> None:
     _target(experiment).set_tags(tags)
 
 
-def save(obj: Any, name: Optional[str] = None, *, experiment: bool = False, **kwargs: Any) -> Optional[str]:
-    """Save anything to the current run (the trial you started with `start`).
+def log_model(model: Any, *, experiment: bool = False, **kwargs: Any) -> str:
+    """Save a model so it can be versioned: register it, give it an alias, load it by alias. Returns its URI.
+    The model is stored in MLflow's model section and linked to the run, so the run shows what it produced.
+
+    * a model object  -> saved with its library's MLflow flavor (sklearn, PyTorch, XGBoost, ...), or as a PyTorch
+                         bundle with `flavor="bundle"`; other keyword arguments go to the saver
+    * a file or folder -> stored as files, with no loader: `at.load(...)` gives back a folder with them
+
+    It goes to the trial you are in. With experiment=True it goes to the experiment itself (register it with
+    `at.register(experiment_run)`, the run `at.init` returned). A model object saved with a library flavor can only
+    go to the experiment before the first `at.start`; a bundle, a pickle, a file or a folder can go at any time.
+    """
+    r = _target(experiment)
+    if isinstance(model, (str, os.PathLike)):
+        if kwargs:
+            raise ValidationError(f"{sorted(kwargs)} only apply to a model object, not to a file or folder")
+        return r.log_model_files(model)
+    if experiment and _state is not None and _state.child is not None \
+            and kwargs.get("flavor") not in (bundle.FLAVOR, bundle.PICKLE_FLAVOR):
+        raise ValidationError(
+            "A model saved with a library flavor can only be logged on the innermost run, so it cannot go to the "
+            "experiment while a trial is open. Use flavor='bundle', log it before at.start(), or log it on the trial.")
+    return r.log_model(model, **kwargs)
+
+
+def save(obj: Any, name: Optional[str] = None, *, experiment: bool = False) -> None:
+    """Save files to the current run (the trial you started with `start`) as artifacts. It does not take models.
 
     * a file path           -> artifact
-    * a folder path         -> every file in it, as a bundle
-    * a list of file paths  -> a bundle
+    * a folder path         -> every file in it
+    * a list of file paths  -> all of them
     * text (with name=...)  -> a text artifact such as a training log
-    * anything else         -> a model (extra keyword arguments go to log_model)
 
-    experiment=True saves a file, folder or text on the experiment itself instead of the trial, for things every run
-    of the experiment uses (a vocabulary, a label map, a dataset report). A model always belongs to one trial, so
-    `experiment=True` with a model is an error. Names must be unique among the files kept on one experiment.
+    A model is saved with `log_model`, which puts it in MLflow's model section with a link to the run and lets you
+    register, promote and load it. A weights file saved here is just a file; to version it, use `log_model(path)`.
+    experiment=True saves on the experiment itself instead of the trial, for things every run of the experiment uses
+    (a vocabulary, a label map, a dataset report). Names must be unique among the files kept on one experiment.
     """
     r = _target(experiment)
     is_path = lambda x: isinstance(x, (str, os.PathLike))  # noqa: E731
     if is_path(obj) and os.path.exists(obj):
         path = os.fspath(obj)
         r.log_artifacts(path) if os.path.isdir(path) else r.log_artifact(path)
-        return None
-    if isinstance(obj, (list, tuple)) and obj and all(is_path(x) and os.path.exists(x) for x in obj):
+    elif isinstance(obj, (list, tuple)) and obj and all(is_path(x) and os.path.exists(x) for x in obj):
         r.log_artifacts([os.fspath(x) for x in obj])
-        return None
-    if isinstance(obj, str):
+    elif isinstance(obj, str):
         if name is None:
             raise ValidationError(
                 f"{obj!r} is not an existing file or folder. To save text, pass a file name: "
                 "save(text, name='train.log')")
         r.log_text(obj, name)
-        return None
-    if experiment:
+    else:
         raise ValidationError(
-            "A model belongs to one run, so it cannot be saved with experiment=True. "
-            "Use experiment=True for files, folders and text.")
-    return r.log_model(obj, **kwargs)
+            f"at.save stores files, folders and text, not a {type(obj).__name__}. "
+            "To save a model, use at.log_model(model).")
 
 
 def finish() -> None:

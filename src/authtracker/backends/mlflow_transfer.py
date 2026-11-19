@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import mlflow
-from mlflow.entities import Metric, Param, RunTag
+from mlflow.entities import LoggedModelOutput, Metric, Param, RunTag
 from mlflow.exceptions import MlflowException
 
 from ..errors import ValidationError
@@ -231,7 +231,10 @@ def import_model(client, src, name: Optional[str] = None) -> Dict[str, Any]:
     for r in manifest["runs"]:
         uri = r["tags"].get(TAG_MODEL_URI)
         if uri in new_uri:
-            client.set_tag(new_ids[r["id"]], TAG_MODEL_URI, new_uri[uri])
+            run_id = new_ids[r["id"]]
+            client.set_tag(run_id, TAG_MODEL_URI, new_uri[uri])
+            # link the run to its model, as MLflow does when a run saves one, so the run page lists it
+            client.log_outputs(run_id, [LoggedModelOutput(model_id=new_uri[uri].split("/", 1)[1], step=0)])
 
     # ---- registry: versions in order, then aliases
     version_map: Dict[str, str] = {}

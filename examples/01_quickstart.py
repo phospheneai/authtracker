@@ -28,7 +28,7 @@ for C in (0.001, 0.1, 10.0):
     accuracy = clf.score(X_test, y_test)
     at.log({"accuracy": accuracy})                           # step counts up by itself
     at.save(f"C={C:g} accuracy={accuracy:.4f}\n", name="summary.txt")   # text -> a file in the run
-    at.save(clf)                                             # the model (sklearn flavor is detected)
+    at.log_model(clf)                                             # the model (sklearn flavor is detected)
     print(f"  C={C:<6g} accuracy={accuracy:.4f}")
 at.finish()
 ok("three runs logged")

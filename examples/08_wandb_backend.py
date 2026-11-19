@@ -36,7 +36,7 @@ for C in (0.001, 0.1, 10.0):
     accuracy = clf.score(X_test, y_test)
     at.log({"accuracy": accuracy})
     at.save(f"C={C:g} accuracy={accuracy:.4f}\n", name="summary.txt")
-    at.save(clf)                                          # on W&B this is a model artifact
+    at.log_model(clf)                                          # on W&B this is a model artifact
     print(f"  C={C:<6g} accuracy={accuracy:.4f}")
 at.finish()
 

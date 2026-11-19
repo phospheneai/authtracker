@@ -2,7 +2,7 @@
 
     python examples/07_pytorch_bundle.py          (needs torch)
 
-Shows: at.save(net, flavor="bundle"), the files a bundle holds, register/promote, at.load returning your
+Shows: at.log_model(net, flavor="bundle"), the files a bundle holds, register/promote, at.load returning your
 own class with its weights, extras (plain attributes), at.load_bundle on a downloaded folder, and fine-tuning
 a loaded model into the next version.
 """
@@ -52,7 +52,7 @@ net = Classifier(**ARGS)
 accuracy = fit(net, epochs=5, lr=0.05)
 net.eval()
 at.log({"accuracy": accuracy})
-at.save(net, flavor="bundle", init_args=ARGS, extras={"class_names": ["negative", "positive"]})
+at.log_model(net, flavor="bundle", init_args=ARGS, extras={"class_names": ["negative", "positive"]})
 v1 = at.register()
 at.promote(MODEL, v1, "production")
 at.finish()
@@ -89,7 +89,7 @@ at.start("second", config={"lr": 0.01, "epochs": 20})
 accuracy2 = fit(loaded, epochs=20, lr=0.01)
 loaded.eval()
 at.log({"accuracy": accuracy2})
-at.save(loaded, flavor="bundle")                               # it remembers its code and arguments
+at.log_model(loaded, flavor="bundle")                               # it remembers its code and arguments
 v2 = at.register()
 at.finish()
 assert int(v2) == int(v1) + 1

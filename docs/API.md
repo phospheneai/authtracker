@@ -7,12 +7,12 @@ For setup and examples, see the [README](../README.md), the [user guide](GUIDE.m
 import authtracker as at
 ```
 
-Public names: `init`, `start`, `log`, `save`, `restore`, `watch`, `finish`, `set_tags`, `current_run`, `alert`,
+Public names: `init`, `start`, `log`, `save`, `log_model`, `restore`, `watch`, `finish`, `set_tags`, `current_run`, `alert`,
 `best_run`, `register`, `promote`, `rollback`, `load`, `export_model`, `import_model`, `export_all`, `import_all`, `load_bundle`, `run`, `Run`, `Settings`,
 `configure`, `get_settings`, `set_tracking_uri`, `get_tracking_uri`, and the errors `AuthTrackerError`, `ValidationError`, `PromotionError`,
 `BackendError`, `UnsupportedError`, `ConfigError`.
 
-- [Tracking](#tracking): `init`, `start`, `log`, `save`, `restore`, `watch`, `set_tags`, `finish`, `current_run`
+- [Tracking](#tracking): `init`, `start`, `log`, `save`, `log_model`, `restore`, `watch`, `set_tags`, `finish`, `current_run`
 - [Versioning](#versioning): `best_run`, `register`, `promote`, `rollback`, `load`
 - [Moving a model](#moving-a-model-between-stores): `export_model`, `import_model`, `export_all`, `import_all`
 - [Bundles](#bundles): `save(flavor="bundle")`, `load_bundle`
@@ -69,31 +69,61 @@ Logs a dict of numbers to the current run. `step` counts up by itself, per run, 
 resume it carries on from the last logged step. Names are checked against `AUTHTRACKER_METRIC_NAMES`. With `experiment=True` the metrics go to the experiment itself instead
 of the trial, for a result about the whole experiment: `at.log({"best_lr": 0.01}, experiment=True)`.
 
-### `at.save(obj, name=None, *, experiment=False, **kwargs)`
+### `at.save(obj, name=None, *, experiment=False)`
 
-Saves something to the current run. What it does depends on `obj`:
+Saves **files** to the current run as artifacts. It never takes a model. What it does depends on `obj`:
 
 | `obj` | Result |
 |---|---|
 | a path to a file | an artifact |
-| a path to a folder | every file in it, as a bundle of artifacts |
-| a list of file paths | a bundle of artifacts |
-| text, with `name=` | a text artifact (a path that does not exist and no `name` is an error) |
-| anything else | a model. Extra keyword arguments go to the backend (MLflow's `log_model`, or the bundle options below). |
+| a path to a folder | the files directly in it (**sub-folders are not saved**; use `at.log_model(folder)` to keep a structure) |
+| a list of file paths | all of them |
+| text, with `name=` | a text artifact (text with no `name` is an error) |
+| a model object, or a path that does not exist | `ValidationError`; for a model it points to `at.log_model` |
 
-By default it saves to the trial you are in (the run you started with `start`). Pass `experiment=True` to save a file,
-folder or text on the **experiment** instead, for things every trial uses, such as a label map or a vocabulary:
+By default it saves to the trial you are in (the run you started with `start`). Pass `experiment=True` to save on the
+**experiment** instead, for things every trial uses, such as a label map or a vocabulary. File names must be unique
+among the files kept on one experiment.
 
 ```python
 at.save("labels.json", experiment=True)        # on the experiment: every trial of it uses this file
 at.save("confusion_matrix.png")                # on this trial only
 ```
 
-A model always belongs to one trial, so `experiment=True` with a model raises `ValidationError`. File names must be
-unique among the files kept on one experiment.
+A weights file saved here is a plain file in the run's Artifacts tab. It is not a model and cannot be registered. To
+version a file as a model, use `at.log_model(path)`.
 
-A model's keyword arguments include `flavor` (`"bundle"`, `"pickle"`, or an MLflow flavor), `input_example`,
-`code_paths`, `pip_requirements`, `serialization_format`. Returns a model URI for models and `None` otherwise.
+### `at.log_model(model, *, experiment=False, **kwargs)`
+
+Saves a **model** so it can be versioned: registered, given an alias, and loaded by alias. The model is stored in
+MLflow's model section (a logged model) and linked to the run, so the run shows what it produced. Returns the model's URI.
+
+| `model` | Result |
+|---|---|
+| a model object (sklearn, PyTorch, XGBoost, LightGBM, ...) | saved with its library's MLflow flavor |
+| a PyTorch model with `flavor="bundle"` | an authtracker bundle (your architecture file, weights, inference script). See [Bundles](#bundles). |
+| a PyTorch model with `flavor="pickle"` | a pickled object |
+| a path to a file or a folder | stored as files, with no loader. `at.load(...)` gives back a folder with them. |
+
+Keyword arguments for a model object include `flavor`, `input_example`, `code_paths`, `pip_requirements` and
+`serialization_format`. Giving them with a file or folder raises `ValidationError`. A folder with no files in it
+(empty, or only empty sub-folders) also raises `ValidationError`, so you never version an empty model. Sub-folders are
+kept, and a symlinked file is stored with its content.
+
+By default the model goes to the trial you are in. With `experiment=True` it goes to the experiment itself, for example
+a final model chosen after comparing the trials; register it with `at.register(experiment_run)`, using the run that
+`at.init` returned. A model object saved with a library flavor can only go to the experiment before the first
+`at.start`, because MLflow logs those on the innermost run. A bundle, a pickle, a file or a folder can go at any time.
+
+```python
+at.log_model(clf)                                        # sklearn model on this trial
+at.log_model(net, flavor="bundle", init_args={"hidden": 32})
+at.log_model("weights.pth")                              # the file as a versioned model (no loader)
+
+experiment_run = at.init("churn", "baseline", dataset_version="v1")
+at.log_model("best_weights.pth", experiment=True)        # on the experiment
+version = at.register(experiment_run)
+```
 
 ### `at.restore(name, folder=None)`
 
@@ -165,7 +195,8 @@ Raises `PromotionError` when there is nothing to go back to.
 ### `at.load(name, alias="production", *, device="cpu", pickle=False)`
 
 Loads a model by alias, never by run id. A bundle comes back as your own `torch.nn.Module` (on `device`,
-in eval mode). Any other model comes back as an MLflow model with `predict()`. `pickle=True` is needed to
+in eval mode). A model stored as files (`at.log_model("weights.pth")` or a folder) comes back as the path of a new
+folder holding them, which is yours to use and delete. Any other model comes back as an MLflow model with `predict()`. `pickle=True` is needed to
 load a model saved with `flavor="pickle"` (it runs code from the file).
 
 ---
@@ -227,7 +258,7 @@ authtracker import --all everything --tracking-uri http://new-server:5000
 A PyTorch model saved as a folder: the architecture file, the weights and what is needed to run it.
 
 ```python
-at.save(net, flavor="bundle", init_args={"hidden": 32})
+at.log_model(net, flavor="bundle", init_args={"hidden": 32})
 ```
 
 | Option | Description |

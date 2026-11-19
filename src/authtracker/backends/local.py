@@ -102,6 +102,25 @@ class LocalBackend(Backend):
         self.set_tags(run_id, {TAG_MODEL_URI: uri})
         return uri
 
+    def log_model_files(self, run_id, local_dir):
+        target = self._artifacts(run_id) / "model_files"
+        shutil.copytree(local_dir, target, dirs_exist_ok=True)
+        uri = str(target)
+        self.set_tags(run_id, {TAG_MODEL_URI: uri})
+        return uri
+
+    def download_model_files(self, name, alias, dst=None):
+        import tempfile
+        version = self.get_alias(name, alias)
+        if version is None:
+            return None
+        source = Path(self._registry()[name]["versions"][version]["uri"])
+        if source.name != "model_files":
+            return None
+        target = Path(dst or tempfile.mkdtemp(prefix="authtracker-load-"))
+        shutil.copytree(source, target, dirs_exist_ok=True)
+        return str(target)
+
     def download_bundle(self, name, alias, dst=None):
         import tempfile
         version = self.get_alias(name, alias)

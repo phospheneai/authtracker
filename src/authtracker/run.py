@@ -143,6 +143,27 @@ class Run:
                 return self._backend.log_model_dir(self.id, folder)
         return self._backend.log_model(self.id, model, flavor, **kwargs)
 
+    def log_model_files(self, path: "Union[str, os.PathLike[str]]") -> str:
+        """Store a file or a folder as this run's model, with no loader: it can be registered, promoted and
+        downloaded, and `load` gives back the folder. Use `log_model` for a model object you want rebuilt."""
+        path = os.fspath(path)
+        if not os.path.exists(path):
+            raise ValidationError(f"{path!r} does not exist. Pass an existing file or folder, or a model object.")
+        if os.path.isdir(path) and not any(files for _, _, files in os.walk(path)):
+            raise ValidationError(
+                f"{path!r} has no files in it, so there is nothing to save as a model. "
+                "Write the files first, then call log_model.")
+        with tempfile.TemporaryDirectory(prefix="authtracker-files-") as staging:
+            folder = path
+            if os.path.isfile(path):                       # a single file is wrapped in a folder of its own
+                shutil.copy(path, staging)
+                folder = staging
+            try:
+                return self._backend.log_model_files(self.id, folder)
+            except UnsupportedError:
+                # a backend that takes a path as the model itself (Weights & Biases stores it as a model artifact)
+                return self._backend.log_model(self.id, path, None)
+
     def child(self, name: str, params: Optional[Mapping[str, Any]] = None, resume: bool = False):
         """Start a nested child run (the 'run' level). With resume=True, continue the latest earlier run
         of this name under this experiment run, or start a new one if there is none."""

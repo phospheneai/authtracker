@@ -113,6 +113,16 @@ class Backend(ABC):
         `register` must then be able to make a version from that URI."""
         raise self._unsupported("saving model bundles")
 
+    def log_model_files(self, run_id: str, local_dir: str) -> str:
+        """Store a folder of files as the run's model, with no loader (`at.log_model("weights.pth")`), set
+        TAG_MODEL_URI and return its URI. `register` must then be able to make a version from that URI."""
+        raise self._unsupported("saving files as a model")
+
+    def download_model_files(self, name: str, alias: str, dst: Optional[str] = None) -> Optional[str]:
+        """If version `alias` of `name` is a files model, copy it into a NEW folder and return its path (the
+        caller owns it); otherwise return None."""
+        return None
+
     def download_bundle(self, name: str, alias: str, dst: Optional[str] = None) -> Optional[str]:
         """If version `alias` of `name` is a model bundle, copy it into a NEW folder and return its
         path (the caller removes it); otherwise return None."""

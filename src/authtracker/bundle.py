@@ -1,6 +1,6 @@
 """A PyTorch model as a plain folder you can read, run and reproduce.
 
-    at.save(net, flavor="bundle", init_args={"hidden": 64})
+    at.log_model(net, flavor="bundle", init_args={"hidden": 64})
 
 stores this folder with the run (and `at.register()` can version it):
 
@@ -19,8 +19,8 @@ Loading runs the architecture file, so only load bundles you trust.
 
 Two optional extras, for when you want the exact object back (like fastai's `export.pkl`):
 
-    at.save(net, flavor="bundle", pickle=True)    # the folder above, plus model.pkl
-    at.save(net, flavor="pickle")                 # only model.pkl, requirements and the environment
+    at.log_model(net, flavor="bundle", pickle=True)    # the folder above, plus model.pkl
+    at.log_model(net, flavor="pickle")                 # only model.pkl, requirements and the environment
     at.load("name", "production", pickle=True)    # the exact object, attributes and all
 
 A pickle runs code when it is loaded, and only loads on the same Python and torch versions, so it is
@@ -58,9 +58,10 @@ from .utils import container_info, git_info, requirements_text
 
 _log = logging.getLogger("authtracker")
 
-FLAVOR = "bundle"                  # the value to pass as at.save(model, flavor=...). Rename it here.
-PICKLE_FLAVOR = "pickle"           # at.save(model, flavor="pickle"): only the pickled object
+FLAVOR = "bundle"                  # the value to pass as at.log_model(model, flavor=...). Rename it here.
+PICKLE_FLAVOR = "pickle"           # at.log_model(model, flavor="pickle"): only the pickled object
 MODEL_TYPE = "authtracker-bundle"  # recorded on the stored model so it can be recognised when loading
+FILES_TYPE = "authtracker-files"   # a model that is just files (at.log_model("weights.pth")): no loader, loads as a folder
 MANIFEST = "bundle.json"
 WEIGHTS = "weights.pth"
 INFERENCE = "inference.py"
@@ -122,7 +123,7 @@ def _code_entries(cls: Any, code) -> tuple:
                 "store. Give a function that builds it, in your own file or script, and pass it as "
                 "factory=:\n    def build_model(**kw):\n        return nn.Sequential(...)   # or torchvision.models."
                 "resnet18(num_classes=2), timm.create_model(...)\n"
-                "    at.save(net, flavor='bundle', factory=build_model, init_args={...})")
+                "    at.log_model(net, flavor='bundle', factory=build_model, init_args={...})")
         if "." in module:
             raise ValidationError(
                 f"{cls.__name__} lives in the package module {module!r}. Pass code='{module.split('.')[0]}' "

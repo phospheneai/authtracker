@@ -271,7 +271,7 @@ def test_save_register_promote_load_gives_back_the_real_class(make_net, tmp_path
     net, _ = make_net(hidden=16)
     at.init("tiny", "bundle-check", dataset_version="v1", settings=s)
     at.start("a")
-    at.save(net, flavor="bundle", init_args={"hidden": 16})
+    at.log_model(net, flavor="bundle", init_args={"hidden": 16})
     v = at.register(settings=s)
     at.promote("tiny", v, "production", settings=s)
     at.finish()
@@ -288,7 +288,7 @@ def test_a_loaded_bundle_in_a_fresh_process_by_alias(make_net, tmp_path, s):
     net, _ = make_net(hidden=16)
     at.init("tiny", "bundle-check", dataset_version="v1", settings=s)
     at.start("a")
-    at.save(net, flavor="bundle", init_args={"hidden": 16})
+    at.log_model(net, flavor="bundle", init_args={"hidden": 16})
     v = at.register(settings=s)
     at.promote("tiny", v, "production", settings=s)
     at.finish()
@@ -313,7 +313,7 @@ def test_other_models_still_load_as_before(tmp_path, s):
     from sklearn.linear_model import LogisticRegression
     at.init("plain", "e", dataset_version="v1", settings=s)
     at.start("a")
-    at.save(LogisticRegression().fit([[0], [1]], [0, 1]))
+    at.log_model(LogisticRegression().fit([[0], [1]], [0, 1]))
     v = at.register(settings=s)
     at.promote("plain", v, "production", settings=s)
     at.finish()
@@ -351,7 +351,7 @@ def test_registry_round_trip_for_a_second_version(make_net, tmp_path):
     at.finish()
     at.init("tiny", "ft", dataset_version="v1", settings=s)
     at.start("first")
-    at.save(net, flavor="bundle", init_args={"hidden": 16})
+    at.log_model(net, flavor="bundle", init_args={"hidden": 16})
     v1 = at.register(settings=s)
     at.promote("tiny", v1, "production", settings=s)
     model = at.load("tiny", "production", settings=s)                    # the registry's temp copy is gone now
@@ -361,7 +361,7 @@ def test_registry_round_trip_for_a_second_version(make_net, tmp_path):
         for p in model.parameters():
             p.add_(0.1)                                                   # a "fine-tuned" model
     at.start("fine-tuned")
-    at.save(model, flavor="bundle")                                       # nothing to pass: it carries its code
+    at.log_model(model, flavor="bundle")                                       # nothing to pass: it carries its code
     v2 = at.register(settings=s)
     at.promote("tiny", v2, "production", settings=s)
     at.finish()
@@ -772,7 +772,7 @@ def test_builder_models_are_registered_loaded_and_fine_tuned_again(make_net, tmp
     at.finish()
     at.init("seq", "e", dataset_version="v1", settings=s)
     at.start("a")
-    at.save(net, flavor="bundle", factory=builders.build_model, init_args={"hidden": 16})
+    at.log_model(net, flavor="bundle", factory=builders.build_model, init_args={"hidden": 16})
     v1 = at.register(settings=s)
     at.promote("seq", v1, "production", settings=s)
     model = at.load("seq", "production", settings=s)
@@ -781,7 +781,7 @@ def test_builder_models_are_registered_loaded_and_fine_tuned_again(make_net, tmp
         for p in model.parameters():
             p.add_(0.1)                                              # "fine-tuned"
     at.start("b")
-    at.save(model, flavor="bundle")                                  # nothing to pass: builder and arguments are remembered
+    at.log_model(model, flavor="bundle")                                  # nothing to pass: builder and arguments are remembered
     v2 = at.register(settings=s)
     at.promote("seq", v2, "production", settings=s)
     at.finish()
@@ -871,3 +871,27 @@ np.save({str(tmp_path / "e_seq.npy")!r}, seq(probe).detach().numpy())
     """, tmp_path / "b_class")
     assert result.returncode == 0, result.stderr
     assert "b_class CellNet SAME" in result.stdout and "b_seq Sequential SAME" in result.stdout
+
+
+def test_a_bundle_is_linked_to_its_run_like_any_other_model(make_net, s):
+    if s.backend == "local":
+        pytest.skip("run-to-model links are MLflow's model section")
+    from authtracker.backends import get_backend
+    net, _ = make_net(hidden=16)
+    at.init("tiny", "link-check", dataset_version="v1", settings=s)
+    trial = at.start("a")
+    uri = at.log_model(net, flavor="bundle", init_args={"hidden": 16})
+    run = get_backend(s).client.get_run(trial.id)
+    assert [m.model_id for m in run.outputs.model_outputs] == [uri.split("/", 1)[1]], "the run lists its model"
+
+
+def test_a_bundle_can_go_to_the_experiment_while_a_trial_is_open(make_net, s):
+    net, _ = make_net(hidden=16)
+    experiment = at.init("tiny", "on-experiment", dataset_version="v1", settings=s)
+    at.start("a")
+    at.log_model(net, flavor="bundle", init_args={"hidden": 16}, experiment=True)
+    from authtracker.backends import get_backend
+    assert get_backend(s).get_run(experiment.id)["tags"].get("authtracker.model_uri")
+    version = at.register(experiment, settings=s)
+    at.promote("tiny", version, "production", settings=s)
+    assert torch.allclose(at.load("tiny", "production", settings=s)(X), net.eval()(X), atol=1e-6)

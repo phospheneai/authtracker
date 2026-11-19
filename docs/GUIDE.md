@@ -52,7 +52,7 @@ for C in (0.1, 1.0, 10.0):
     clf = LogisticRegression(C=C).fit(X, y)
     at.log({"accuracy": clf.score(X, y)})         # step counts up by itself
     at.save("fitted ok\n", name="train.log")      # text -> a log file
-    at.save(clf)                                  # a model
+    at.log_model(clf)                                  # a model
 
 at.register()                                     # a version of the current run's model
 at.promote("model1", 1, "production")
@@ -72,7 +72,8 @@ mlflow ui                  # or open your server's address to browse the runs
 | `at.init(model, experiment, ...)` | Opens the experiment (the parent run) under the model. Closes anything still open. Takes `config="train.yaml"` and `dataset={...}` too (see below). |
 | `at.start(name, config={...})` | Starts a run (one trial) and closes the previous one. |
 | `at.log({...})` | Logs metrics to the current run. `step` counts up by itself; pass `step=` to control it. |
-| `at.save(thing)` | Saves a file, a folder or list of files (a bundle), text (with `name=`), or a model. |
+| `at.save(thing)` | Saves files as artifacts: a file, a folder or list of files, or text (with `name=`). |
+| `at.log_model(model)` | Saves a model so it can be registered, promoted and loaded: a model object, or a file or folder as files. |
 | `at.finish()` | Optional. Runs also close when the script ends, as `FAILED` if it ended with an error. |
 | `at.set_tags({...})` | Adds tags to the current run. |
 | `at.best_run(model, experiment, metric)` | The best run (higher is better; `mode="min"` for loss). |
@@ -168,11 +169,11 @@ Things that differ on W&B, because W&B works differently:
 - `at.best_run` also finds runs from other processes through the W&B API, which can lag a few seconds
   behind a run that just finished. Runs started in the same process are always found immediately.
 - A parameter cannot be changed after it is logged (W&B enforces this).
-- `at.save(model, serialization_format=...)` and other MLflow-only options raise an error that lists
+- `at.log_model(model, serialization_format=...)` and other MLflow-only options raise an error that lists
   what the W&B backend supports.
 - `register` and `load` are not implemented, so the "ship architecture and `infer_single.py`" example
   below (a `pyfunc` model) is MLflow-only. On W&B, save the weights with
-  `at.save(model, code_paths=["arch", "infer_single.py"])` and use W&B's own artifact aliases and
+  `at.log_model(model, code_paths=["arch", "infer_single.py"])` and use W&B's own artifact aliases and
   registry for versions.
 
 Status: tracking, files and model artifacts on W&B are tested with the real W&B SDK in offline mode.
@@ -284,18 +285,21 @@ is printed, so do not print secrets. On Weights & Biases the platform records th
 
 ```python
 at.save("confusion_matrix.png")                          # one file
-at.save("reports/")                                      # a bundle: every file in a folder
+at.save("reports/")                                      # a bundle: the files directly in a folder
 at.save(["config.yaml", "vocab.json", "labels.csv"])     # a bundle: a list of files
 ```
 
 By default these go to the trial you are in. Add `experiment=True` (for example `at.save("labels.json", experiment=True)`) to put a
 file, folder or text on the experiment instead, where every trial of it can use it. `at.log` and `at.set_tags` take the
-same argument, e.g. `at.log({"best_lr": 0.01}, experiment=True)`. Models always belong to one trial.
+same argument, e.g. `at.log({"best_lr": 0.01}, experiment=True)`. So does `at.log_model`: a bundle, a pickle, a file or a
+folder can be logged on the experiment at any time, and a library model (sklearn, ...) only before the first `at.start`.
 
-Files keep their names and sub-folders are not copied, so names inside one bundle must be unique.
+Files keep their names, and **files inside sub-folders are not saved** (they are skipped without a warning), so names inside one
+bundle must be unique. To keep a folder structure, store the folder as a model with `at.log_model("folder/")`.
 A path that does not exist is an error, not silently logged as text.
 
-**Models.** `at.save(model)` detects sklearn, PyTorch, XGBoost, LightGBM and similar models. Pass
+**Models.** `at.save` is for files only. A model goes through `at.log_model(model)`, which stores it in MLflow's model
+section, linked to the run, so you can register, promote and load it. It detects sklearn, PyTorch, XGBoost, LightGBM and similar models. Pass
 `flavor="pytorch"` or other MLflow options as keyword arguments when needed.
 
 ## PyTorch models as a bundle (plain files, the real class back)
@@ -313,7 +317,7 @@ class Classifier(nn.Module):
 from architecture import Classifier
 net = Classifier(hidden=32)
 ...                                                       # train it, on any device
-at.save(net, flavor="bundle", init_args={"hidden": 32})   # the folder is stored with the run
+at.log_model(net, flavor="bundle", init_args={"hidden": 32})   # the folder is stored with the run
 at.register()                                             # ... and versioned
 net = at.load("name", "production")                       # the real Classifier, with its weights
 net = at.load("name", "production", device="cuda")        # on a GPU, if you want
@@ -344,7 +348,7 @@ How it works:
   is stored as `$BUNDLE/assets/<name>`, which becomes the real path at load time:
 
 ```python
-at.save(net, flavor="bundle",
+at.log_model(net, flavor="bundle",
         init_args={"backbone_path": "/data/models/dinov3-huge", "feature_dim": 1280},
         assets={"/data/models/dinov3-huge": ["*.json"]})   # only the files the constructor reads
 ```
@@ -369,7 +373,7 @@ at.save(net, flavor="bundle",
   setup is still to keep the class in its own file and import it; `code="architecture.py"` names the
   file explicitly.
 - **Fine-tuning works.** A loaded model remembers its code and arguments, so
-  `net = at.load(...)`, train some more, `at.save(net, flavor="bundle")` makes the next version with
+  `net = at.load(...)`, train some more, `at.log_model(net, flavor="bundle")` makes the next version with
   nothing to pass.
 - **Tampering is caught.** Loading checks every file against the hashes in `bundle.json`
   (`authtracker.load_bundle(folder, verify=False)` skips it).
@@ -391,9 +395,9 @@ net.class_names = ["real", "fake"]                       # set after creating it
 net.threshold = 0.3
 
 # 1. the folder (as before), plus model.pkl
-at.save(net, flavor="bundle", init_args={"hidden": 16}, pickle=True)
+at.log_model(net, flavor="bundle", init_args={"hidden": 16}, pickle=True)
 # 2. only model.pkl, the requirements and the environment
-at.save(net, flavor="pickle")
+at.log_model(net, flavor="pickle")
 
 net = at.load("detector", "production")                  # rebuilt: architecture + weights (1 and 2: see below)
 net = at.load("detector", "production", pickle=True)     # the exact object: class_names and threshold are back
@@ -423,7 +427,7 @@ net = at.load("detector", "production", pickle=True)     # the exact object: cla
   JSON in `bundle.json` and put back on the rebuilt model, with no pickle:
 
 ```python
-at.save(net, flavor="bundle", init_args={"hidden": 16}, extras={"class_names": ["real", "fake"], "threshold": 0.3})
+at.log_model(net, flavor="bundle", init_args={"hidden": 16}, extras={"class_names": ["real", "fake"], "threshold": 0.3})
 net = at.load("detector", "production")                  # net.class_names, net.threshold are back
 ```
 
@@ -575,7 +579,7 @@ def build_model(n_classes=2):                           # in your own file (or y
     net.fc = nn.Sequential(nn.Dropout(0.2), net.fc)     # any change you make after creating it
     return net
 
-at.save(net, flavor="bundle", factory=build_model, init_args={"n_classes": 2})
+at.log_model(net, flavor="bundle", factory=build_model, init_args={"n_classes": 2})
 ```
 
 Use `weights=None` / `pretrained=False` inside it: the trained weights come from the bundle, so downloading
@@ -588,7 +592,7 @@ model when you only need predictions and want a format with no code in it.
 ## Saving PyTorch models as a traced graph (MLflow's default)
 
 ```python
-at.save(net, input_example=batch.cpu().numpy())      # any nn.Module, including your own classes
+at.log_model(net, input_example=batch.cpu().numpy())      # any nn.Module, including your own classes
 ```
 
 How MLflow saves it, and what that means for you:
@@ -608,7 +612,7 @@ How MLflow saves it, and what that means for you:
   defines your class, otherwise loading elsewhere fails with `No module named 'net'`:
 
 ```python
-at.save(net, input_example=batch.cpu().numpy(),
+at.log_model(net, input_example=batch.cpu().numpy(),
         serialization_format="pickle", code_paths=["net.py"])
 ```
 
@@ -663,7 +667,7 @@ fake_image_detector/
 from arch.pyfunc_model import FakeImageModel
 
 at.save(["infer_single.py", "README_model.md", "requirements.txt"])      # visible in the UI
-at.save(
+at.log_model(
     FakeImageModel(), flavor="pyfunc",                       # the wrapper, not the raw network
     artifacts={"weights": "weights.pt"},                     # the saved state_dict
     code_paths=["arch", "infer_single.py"],                  # copied into the model folder

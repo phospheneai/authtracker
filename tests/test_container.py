@@ -161,7 +161,7 @@ def test_the_saved_model_says_which_image_it_was_made_in(tmp_path, s):
     at.init("m", "e", dataset_version="v1", image=f"registry.io/team/app@{DIGEST}", settings=s)
     at.start("a")
     run_id = at.current_run().id
-    at.save(torch.nn.Linear(2, 2), flavor="pickle", check=False)
+    at.log_model(torch.nn.Linear(2, 2), flavor="pickle", check=False)
     at.finish()
     manifest = json.loads((get_backend(s).inner._artifacts(run_id) / "model_bundle" / "bundle.json").read_text())
     assert manifest["container"]["digest"] == DIGEST and manifest["container"]["pinned"] == "true"

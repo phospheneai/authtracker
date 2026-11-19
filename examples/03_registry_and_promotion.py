@@ -31,7 +31,7 @@ for alpha in (1e-5, 5.0):
     clf = SGDClassifier(loss="log_loss", alpha=alpha, random_state=0).fit(X_train, y_train)
     f1 = f1_score(y_test, clf.predict(X_test))
     at.log({"f1": f1})
-    at.save(clf, input_example=X_test[:3])
+    at.log_model(clf, input_example=X_test[:3])
     print(f"  alpha={alpha:<8g} f1={f1:.4f}")
 at.finish()
 

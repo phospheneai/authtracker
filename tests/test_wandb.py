@@ -56,13 +56,23 @@ def test_simple_api_on_wandb(offline):
     assert len(list(offline.glob("wandb/offline-run-*/files/train.log"))) == 1
 
 
+def test_log_model_takes_a_file_on_wandb_too(offline, tmp_path):
+    (tmp_path / "w.pth").write_text("weights")
+    s = Settings(backend="wandb", owner="t", capture_env=False)
+    at.init("model1", "exp", dataset_version="v1", settings=s)
+    at.start("a")
+    assert at.log_model(str(tmp_path / "w.pth"))                  # W&B stores a path as a model artifact itself
+    at.finish()
+    assert len(_offline_runs(offline)) == 2
+
+
 def test_registry_is_clearly_unsupported(offline):
     from sklearn.linear_model import LogisticRegression
     s = Settings(backend="wandb", capture_env=False)
     at.init("model1", "exp", settings=s)
     at.start("a")
     at.log({"f1": 0.9})
-    at.save(LogisticRegression().fit([[0], [1]], [0, 1]))        # a model artifact: supported
+    at.log_model(LogisticRegression().fit([[0], [1]], [0, 1]))        # a model artifact: supported
     with pytest.raises(at.BackendError, match="WandbBackend.*model registry"):
         at.register(settings=s)
     with pytest.raises(at.BackendError, match="WandbBackend.*model registry"):
@@ -76,10 +86,10 @@ def test_log_model_options(offline, tmp_path):
     code = tmp_path / "arch"
     code.mkdir()
     (code / "net.py").write_text("x = 1")
-    uri = at.save({"weights": [1, 2]}, code_paths=[str(code)], pip_requirements=["torch"])
+    uri = at.log_model({"weights": [1, 2]}, code_paths=[str(code)], pip_requirements=["torch"])
     assert uri.startswith("wandb-artifact:model1/model-")
     with pytest.raises(at.BackendError, match="serialization_format"):
-        at.save({"w": 1}, serialization_format="cloudpickle")    # an MLflow-only option
+        at.log_model({"w": 1}, serialization_format="cloudpickle")    # an MLflow-only option
 
 
 def test_wandb_backend_is_not_wrapped_in_the_queue(offline):

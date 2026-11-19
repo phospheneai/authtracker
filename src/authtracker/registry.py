@@ -106,17 +106,21 @@ def load(name: str, alias: str = "production", *, device: str = "cpu", pickle: b
          settings=None, backend=None) -> Any:
     """Load a model by registry alias (never by run id).
 
-    A PyTorch bundle comes back as the real torch.nn.Module (on `device`, in eval mode); any other
-    model comes back as an MLflow model with predict().
+    A PyTorch bundle comes back as the real torch.nn.Module (on `device`, in eval mode). A model that was stored as
+    files (`at.log_model("weights.pth")`) comes back as the path of a new folder holding them: it is yours to use and
+    delete. Any other model comes back as an MLflow model with predict().
     """
     _, b = _ctx(settings, backend)
     folder = b.download_bundle(name, alias)
-    if folder is None:
-        return b.load(name, alias)
-    try:
-        return bundle.load_dir(folder, device=device, pickle=pickle)
-    finally:
-        shutil.rmtree(folder, ignore_errors=True)
+    if folder is not None:
+        try:
+            return bundle.load_dir(folder, device=device, pickle=pickle)
+        finally:
+            shutil.rmtree(folder, ignore_errors=True)
+    files = b.download_model_files(name, alias)
+    if files is not None:
+        return files
+    return b.load(name, alias)
 
 
 def export_model(name: str, dest: Union[str, "os.PathLike[str]"], *, settings=None, backend=None) -> Dict[str, Any]:

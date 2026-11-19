@@ -38,7 +38,7 @@ def source(tmp_path_factory):
             at.log({"loss": 1.0 / (epoch + 1)})
         at.log({"f1": 0.5 if name == "weak" else 0.9})
         at.save(f"notes for {name}\n", name="notes.txt")
-        at.save(clf)
+        at.log_model(clf)
         v = at.register()
         at.promote("churn", v, "staging")
     at.finish()
@@ -116,7 +116,7 @@ def test_the_imported_model_works_through_the_normal_api(source, tmp_path):
     at.init("churn", "baseline-2", dataset_version="v1", settings=dest)
     at.start("next")
     from sklearn.linear_model import LogisticRegression
-    at.save(LogisticRegression().fit([[0], [1]], [0, 1]))
+    at.log_model(LogisticRegression().fit([[0], [1]], [0, 1]))
     assert at.register() == "3"
     at.finish()
 
@@ -219,7 +219,7 @@ def test_a_pytorch_bundle_survives_the_trip(tmp_path):
         net = arch.Tiny()
         at.init("tiny", "e", dataset_version="v1", settings=s)
         at.start("r")
-        at.save(net, flavor="bundle", init_args={"n": 3}, extras={"class_names": ["a", "b"]})
+        at.log_model(net, flavor="bundle", init_args={"n": 3}, extras={"class_names": ["a", "b"]})
         v = at.register()
         at.promote("tiny", v, "production")
         at.finish()
@@ -318,3 +318,27 @@ def test_cli_all_flags(two_models, tmp_path, capsys):
     assert main(["export", "churn", "--all", "--out", str(tmp_path / "x"), "--tracking-uri", dest.tracking_uri]) == 1
     assert main(["import", "--all", "--name", "x", str(out), "--tracking-uri", dest.tracking_uri]) == 1
     assert "cannot be used with --all" in capsys.readouterr().out
+
+
+def test_a_files_model_survives_the_trip(tmp_path):
+    (tmp_path / "weights.pth").write_text("fake weights")
+    s = store(tmp_path, "source")
+    at.configure(s)
+    at.init("filesmodel", "e", dataset_version="v1", settings=s)
+    trial = at.start("r")
+    at.log_model(str(tmp_path / "weights.pth"))
+    version = at.register(settings=s)
+    at.promote("filesmodel", version, "production", settings=s)
+    at.finish()
+    out = tmp_path / "export"
+    at.export_model("filesmodel", out, settings=s)
+    dest = store(tmp_path, "dest")
+    at.import_model(out, settings=dest)
+    folder = at.load("filesmodel", "production", settings=dest)       # still a files model: a folder comes back
+    assert open(f"{folder}/weights.pth").read() == "fake weights"
+    cd = client(dest)
+    imported = [r for r in cd.search_runs([cd.get_experiment_by_name("filesmodel").experiment_id])
+                if r.data.tags.get("mlflow.runName") == "r"][0]
+    linked = [m.model_id for m in imported.outputs.model_outputs]
+    assert linked == [imported.data.tags["authtracker.model_uri"].split("/", 1)[1]], "the imported run lists its model"
+    at.configure(None)
