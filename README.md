@@ -39,8 +39,8 @@ at.promote("model1", version, "production")
 print(at.load("model1", "production").predict([[3]]))
 ```
 
-Runs go to a `mlflow.db` file in the current folder. Browse them with `mlflow ui`, or send them to a server
-with `AUTHTRACKER_TRACKING_URI=https://mlflow.example.com`.
+Runs go to a `mlflow.db` file in the current folder. Browse them with `mlflow ui`. To use a server, set
+`AUTHTRACKER_TRACKING_URI=https://mlflow.example.com`, or in code: `at.set_tracking_uri("https://mlflow.example.com")`.
 
 ## How it works
 
@@ -105,7 +105,7 @@ authtracker doctor          # is the backend reachable?
 
 ## Status
 
-Experimental. About 280 automated tests and nine runnable examples, run on macOS with MLflow (SQLite)
+Experimental. About 300 automated tests and nine runnable examples, run on macOS with MLflow (SQLite)
 and W&B offline. Not yet verified: a remote MLflow server, W&B online, NVIDIA GPUs, multi-GPU, Windows.
 
 ## Development

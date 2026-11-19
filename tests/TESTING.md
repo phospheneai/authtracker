@@ -12,7 +12,7 @@ pytest -n auto -m "not slow"   # what the release workflow runs
 pytest -n auto -m slow         # the slow end-to-end tests: the examples and the PyTorch bundle
 ```
 
-279 tests pass and 3 are skipped (a backend/parameter combination that does not apply). One at a time the run
+300 tests are collected; all pass except 3 skipped (a backend/parameter combination that does not apply). One at a time the run
 takes about 7 minutes, mostly MLflow start-up (each test makes its own database) and the examples (each is a
 real script). In parallel on 4 CPUs it takes about 3 minutes, and about 1.5 minutes once MLflow's pip-requirements inference is
 switched off for the tests (see `tests/conftest.py`).
@@ -35,6 +35,7 @@ bundles.
 | The backend contract every backend must pass | `test_contract.py` (`authtracker.testing.check_backend`) |
 | Packaging: extras, the core never imports MLflow | `test_packaging.py` |
 | Moving models between stores: export, import, `--all`, the CLI | `test_transfer.py` |
+| Webhook alerts: optional URL, chosen events, never fatal, URL never shown | `test_alerts.py` |
 | **Every example, run as a real script** | `test_examples.py` |
 
 Backend behaviour is tested on `local`, `mlflow` (SQLite) and W&B offline with the same tests.

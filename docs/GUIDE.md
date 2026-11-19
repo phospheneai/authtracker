@@ -63,6 +63,7 @@ Point it at your server first (otherwise MLflow uses a local `mlflow.db` in the 
 
 ```bash
 export AUTHTRACKER_TRACKING_URI=https://mlflow.example.com     # your MLflow server
+# or in code, before at.init: at.set_tracking_uri("https://mlflow.example.com")
 mlflow ui                  # or open your server's address to browse the runs
 ```
 
