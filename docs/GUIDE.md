@@ -288,6 +288,10 @@ at.save("reports/")                                      # a bundle: every file 
 at.save(["config.yaml", "vocab.json", "labels.csv"])     # a bundle: a list of files
 ```
 
+By default these go to the trial you are in. Add `experiment=True` (for example `at.save("labels.json", experiment=True)`) to put a
+file, folder or text on the experiment instead, where every trial of it can use it. `at.log` and `at.set_tags` take the
+same argument, e.g. `at.log({"best_lr": 0.01}, experiment=True)`. Models always belong to one trial.
+
 Files keep their names and sub-folders are not copied, so names inside one bundle must be unique.
 A path that does not exist is an error, not silently logged as text.
 

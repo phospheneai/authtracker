@@ -63,12 +63,13 @@ Starts a run (one trial) inside the experiment and closes the previous one. `nam
 `config` is a dict of parameters. `resume=True` continues the latest earlier run of the same name under this
 experiment run; left out, it follows `init(resume=...)`. Returns the `Run`.
 
-### `at.log(metrics, step=None)`
+### `at.log(metrics, step=None, *, experiment=False)`
 
 Logs a dict of numbers to the current run. `step` counts up by itself, per run, unless you pass it. After a
-resume it carries on from the last logged step. Names are checked against `AUTHTRACKER_METRIC_NAMES`.
+resume it carries on from the last logged step. Names are checked against `AUTHTRACKER_METRIC_NAMES`. With `experiment=True` the metrics go to the experiment itself instead
+of the trial, for a result about the whole experiment: `at.log({"best_lr": 0.01}, experiment=True)`.
 
-### `at.save(obj, name=None, **kwargs)`
+### `at.save(obj, name=None, *, experiment=False, **kwargs)`
 
 Saves something to the current run. What it does depends on `obj`:
 
@@ -79,6 +80,17 @@ Saves something to the current run. What it does depends on `obj`:
 | a list of file paths | a bundle of artifacts |
 | text, with `name=` | a text artifact (a path that does not exist and no `name` is an error) |
 | anything else | a model. Extra keyword arguments go to the backend (MLflow's `log_model`, or the bundle options below). |
+
+By default it saves to the trial you are in (the run you started with `start`). Pass `experiment=True` to save a file,
+folder or text on the **experiment** instead, for things every trial uses, such as a label map or a vocabulary:
+
+```python
+at.save("labels.json", experiment=True)        # on the experiment: every trial of it uses this file
+at.save("confusion_matrix.png")                # on this trial only
+```
+
+A model always belongs to one trial, so `experiment=True` with a model raises `ValidationError`. File names must be
+unique among the files kept on one experiment.
 
 A model's keyword arguments include `flavor` (`"bundle"`, `"pickle"`, or an MLflow flavor), `input_example`,
 `code_paths`, `pip_requirements`, `serialization_format`. Returns a model URI for models and `None` otherwise.
@@ -94,9 +106,10 @@ Logs the gradient norm of each layer of a PyTorch `model` every `every` training
 `grad_norm/<layer>` and `grad_norm/total`. Call it once, after `init` and before the loop. Returns a function
 that stops watching. Needs PyTorch 2.1+.
 
-### `at.set_tags(tags)`
+### `at.set_tags(tags, *, experiment=False)`
 
-Adds tags (values become strings) to the current run. Runs started afterwards inherit them.
+Adds tags (values become strings) to the current run, or to the experiment itself with `experiment=True`. Runs started
+afterwards inherit them.
 
 ### `at.alert(title, text="", level="warn")`
 

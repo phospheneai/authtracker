@@ -70,6 +70,11 @@ def current_run() -> Run:
     return s.child or s.parent
 
 
+def _target(experiment: bool) -> Run:
+    """Where log/save/set_tags write: the trial you are in by default, or the experiment itself."""
+    return _need().parent if experiment else current_run()
+
+
 def _continue_steps(s: _State, run: Run) -> None:
     """After a resume, the automatic step carries on from the last step already logged."""
     if run.resume_n:
@@ -163,13 +168,15 @@ def start(name: Optional[str] = None, config: Optional[Mapping[str, Any]] = None
     return s.child
 
 
-def log(metrics: Mapping[str, float], step: Optional[int] = None) -> None:
+def log(metrics: Mapping[str, float], step: Optional[int] = None, *, experiment: bool = False) -> None:
     """Log metrics to the current run. `step` counts up by itself unless you pass it.
 
+    experiment=True logs to the experiment itself instead of the trial, for a result about the whole experiment
+    (for example `at.log({"best_lr": 0.01}, experiment=True)` after comparing the trials).
     Metric names are checked against AUTHTRACKER_METRIC_NAMES when that is set.
     """
     s = _need()
-    r = s.child or s.parent
+    r = _target(experiment)
     r.check_metric_names(metrics)
     if step is None:
         step = s.steps.get(r.id, -1) + 1
@@ -208,20 +215,25 @@ def alert(title: str, text: str = "", level: str = "warn") -> bool:
     return _alerts.send(get_settings(), _alerts.Alert(_alerts.CUSTOM, title, text, level, fields))
 
 
-def set_tags(tags: Mapping[str, Any]) -> None:
-    current_run().set_tags(tags)
+def set_tags(tags: Mapping[str, Any], *, experiment: bool = False) -> None:
+    """Add tags to the current run, or to the experiment itself with experiment=True."""
+    _target(experiment).set_tags(tags)
 
 
-def save(obj: Any, name: Optional[str] = None, **kwargs: Any) -> Optional[str]:
-    """Save anything to the current run.
+def save(obj: Any, name: Optional[str] = None, *, experiment: bool = False, **kwargs: Any) -> Optional[str]:
+    """Save anything to the current run (the trial you started with `start`).
 
     * a file path           -> artifact
     * a folder path         -> every file in it, as a bundle
     * a list of file paths  -> a bundle
     * text (with name=...)  -> a text artifact such as a training log
     * anything else         -> a model (extra keyword arguments go to log_model)
+
+    experiment=True saves a file, folder or text on the experiment itself instead of the trial, for things every run
+    of the experiment uses (a vocabulary, a label map, a dataset report). A model always belongs to one trial, so
+    `experiment=True` with a model is an error. Names must be unique among the files kept on one experiment.
     """
-    r = current_run()
+    r = _target(experiment)
     is_path = lambda x: isinstance(x, (str, os.PathLike))  # noqa: E731
     if is_path(obj) and os.path.exists(obj):
         path = os.fspath(obj)
@@ -237,6 +249,10 @@ def save(obj: Any, name: Optional[str] = None, **kwargs: Any) -> Optional[str]:
                 "save(text, name='train.log')")
         r.log_text(obj, name)
         return None
+    if experiment:
+        raise ValidationError(
+            "A model belongs to one run, so it cannot be saved with experiment=True. "
+            "Use experiment=True for files, folders and text.")
     return r.log_model(obj, **kwargs)
 
 

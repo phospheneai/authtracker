@@ -204,3 +204,64 @@ def test_runs_go_to_the_store_that_was_set(tmp_path):
     at.configure(None)
     assert len(list((tmp_path / "a" / "runs").glob("*.json"))) == 1
     assert len(list((tmp_path / "b" / "runs").glob("*.json"))) == 1
+
+
+# ------------------------------------------------------------------ experiment=True: on the experiment, not the trial
+def test_save_goes_to_the_trial_and_experiment_true_goes_to_the_experiment(s, tmp_path):
+    (tmp_path / "labels.json").write_text('{"0": "cat"}')
+    (tmp_path / "notes.txt").write_text("for this trial")
+    experiment = at.init("m1", "e1", dataset_version="v1", settings=s)
+    trial = at.start("lr0.1")
+    at.save(str(tmp_path / "notes.txt"))                          # default: the trial you are in
+    at.save(str(tmp_path / "labels.json"), experiment=True)           # every trial of the experiment uses it
+    at.save("a text file for everyone\n", name="readme.txt", experiment=True)
+    assert {"notes.txt"} <= set(_artifacts(s, trial.id)) and "labels.json" not in _artifacts(s, trial.id)
+    assert {"labels.json", "readme.txt"} <= set(_artifacts(s, experiment.id))
+    assert "notes.txt" not in _artifacts(s, experiment.id)
+    at.start("lr0.01")                                            # a second trial: the shared file stays on the experiment
+    at.save(str(tmp_path / "notes.txt"))
+    assert "labels.json" not in _artifacts(s, at.current_run().id)
+
+
+def test_experiment_true_with_no_trial_started_is_the_experiment_anyway(s, tmp_path):
+    (tmp_path / "f.txt").write_text("x")
+    experiment = at.init("m1", "e1", dataset_version="v1", settings=s)
+    at.save(str(tmp_path / "f.txt"), experiment=True)
+    assert "f.txt" in _artifacts(s, experiment.id)
+
+
+def test_a_model_cannot_go_to_the_experiment(s):
+    at.init("m1", "e1", dataset_version="v1", settings=s)
+    at.start("r")
+    with pytest.raises(at.ValidationError, match="belongs to one run"):
+        at.save(object(), experiment=True)
+
+
+def test_experiment_true_needs_an_open_experiment():
+    with pytest.raises(at.AuthTrackerError, match="No active run"):
+        at.save("x", name="f.txt", experiment=True)
+
+
+def test_log_and_tags_go_to_the_trial_or_to_the_experiment(s):
+    from authtracker.backends import get_backend
+    experiment = at.init("m1", "e1", dataset_version="v1", settings=s)
+    b = get_backend(s)
+    for lr, loss in ((0.1, 0.5), (0.01, 0.3)):
+        trial = at.start(f"lr{lr}")
+        at.log({"loss": loss})                                     # this trial's own result
+        at.set_tags({"tuned": "yes"})
+    at.log({"best_lr": 0.01}, experiment=True)                     # a result about the whole experiment
+    at.set_tags({"winner": "lr0.01"}, experiment=True)
+    assert b.get_run(experiment.id)["metrics"]["best_lr"] == 0.01
+    assert b.get_run(experiment.id)["tags"]["winner"] == "lr0.01"
+    assert "best_lr" not in b.get_run(trial.id)["metrics"] and "winner" not in b.get_run(trial.id)["tags"]
+    assert b.get_run(trial.id)["metrics"]["loss"] == 0.3 and "loss" not in b.get_run(experiment.id)["metrics"]
+    assert b.get_run(trial.id)["tags"]["tuned"] == "yes"
+
+
+def test_the_metric_name_rules_apply_to_the_experiment_too(s):
+    import dataclasses
+    at.init("m1", "e1", dataset_version="v1", settings=dataclasses.replace(s, metric_names=("loss",)))
+    at.start("r")
+    with pytest.raises(at.ValidationError):
+        at.log({"best_lr": 0.01}, experiment=True)
