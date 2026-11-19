@@ -17,6 +17,7 @@ import os
 import sys
 from typing import Any, Dict, Mapping, Optional, Union
 
+from . import alerts as _alerts
 from . import configfile
 from . import dataset as dataset_module
 from .errors import AuthTrackerError, ValidationError
@@ -194,6 +195,19 @@ def watch(model: Any, every: int = 100) -> Any:
     (a step is one training forward pass). Returns a function that stops watching.
     """
     return _watch(model, every, current_run)
+
+
+def alert(title: str, text: str = "", level: str = "warn") -> bool:
+    """Send a message to the alert webhook (AUTHTRACKER_ALERT_WEBHOOK), for example when the loss turns NaN.
+
+    level is "info", "warn" or "error": it labels the message. It is sent only if "custom" is among the events chosen
+    in AUTHTRACKER_ALERT_ON (it is by default). The model, experiment and run are added when a run is open. Returns True if the webhook took it, and False
+    when no webhook is set, "custom" is not chosen, or it could not be reached: it never raises, so it is safe inside a training loop.
+    """
+    from .settings import get_settings
+    settings = get_settings()
+    fields = _alerts.run_fields(_state.parent.tags, current_run().id) if _state is not None else {}
+    return _alerts.send(settings, "custom", title, text, level, fields)
 
 
 def set_tags(tags: Mapping[str, Any]) -> None:

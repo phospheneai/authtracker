@@ -14,6 +14,10 @@ from typing import Mapping, Optional, Tuple
 
 PREFIX = "AUTHTRACKER_"
 
+# What can be sent to the alert webhook: a run failing or being stopped, a run finishing, and your own at.alert() calls.
+ALERT_EVENTS = ("failed", "stopped", "finished", "custom")
+ALERT_DEFAULT = ("failed", "stopped", "custom")
+
 _TRUE = {"1", "true", "yes", "on"}
 _FALSE = {"0", "false", "no", "off"}
 
@@ -82,6 +86,8 @@ class Settings:
     queue_dir: Optional[str] = None
     retries: int = 3
     retry_wait: float = 1.0
+    alert_webhook: Optional[str] = None      # a SECRET: only from AUTHTRACKER_ALERT_WEBHOOK, masked when shown
+    alert_on: Tuple[str, ...] = ALERT_DEFAULT  # which events are sent to it (none are sent without a webhook)
 
     @classmethod
     def from_env(cls, environ: Optional[Mapping[str, str]] = None) -> "Settings":
@@ -95,7 +101,7 @@ class Settings:
             "BACKEND", "TRACKING_URI", "REGISTRY_URI", "OWNER", "REQUIRED_TAGS",
             "ALLOWED_MODELS", "METRIC_NAMES", "CAPTURE_ENV", "CAPTURE_LOGS", "SAVE_CODE", "IMAGE", "LOG_UPLOAD_INTERVAL", "SYSTEM_METRICS", "PROMOTE_METRIC",
             "PROMOTE_MIN", "PROMOTE_MUST_BEAT_PROD", "GATED_ALIASES",
-            "OFFLINE_QUEUE", "QUEUE_DIR", "RETRIES", "RETRY_WAIT",
+            "OFFLINE_QUEUE", "QUEUE_DIR", "RETRIES", "RETRY_WAIT", "ALERT_WEBHOOK", "ALERT_ON",
         }
         for key in env:
             if key.startswith(PREFIX) and key[len(PREFIX):] not in known:
@@ -147,6 +153,16 @@ class Settings:
             kw["retries"] = _int("RETRIES", v)
         if (v := get("RETRY_WAIT")) is not None:
             kw["retry_wait"] = _float("RETRY_WAIT", v)
+        if (v := get("ALERT_WEBHOOK")) is not None:
+            if not v.lower().startswith(("https://", "http://")):
+                raise ConfigError(f"{PREFIX}ALERT_WEBHOOK must be an http(s) URL (the value is not shown: it is a secret)")
+            kw["alert_webhook"] = v.strip()
+        if (v := get("ALERT_ON")) is not None:
+            chosen = tuple(x.lower() for x in _csv(v))
+            bad = [x for x in chosen if x not in ALERT_EVENTS]
+            if bad:
+                raise ConfigError(f"{PREFIX}ALERT_ON has unknown events {bad}; choose from {', '.join(ALERT_EVENTS)}")
+            kw["alert_on"] = chosen
         return cls(**kw)
 
     def masked(self) -> dict:
@@ -155,6 +171,8 @@ class Settings:
         for k in ("tracking_uri", "registry_uri"):
             if d[k]:
                 d[k] = re.sub(r"://[^/@]+@", "://***@", d[k])
+        if d["alert_webhook"]:                       # the path of a webhook URL is the secret
+            d["alert_webhook"] = re.sub(r"^(https?://[^/]+/).*$", r"\1***", d["alert_webhook"])
         return d
 
 

@@ -424,7 +424,25 @@ net = at.load("detector", "production")                  # net.class_names, net.
 
   They follow the model through fine-tuning: load, change `net.threshold`, save again, and the new value is kept.
 
-### Move a model to another server
+### Alerts
+
+Get told when a run fails, without watching it. Set one environment variable to a webhook URL (any URL that accepts JSON,
+such as a chat tool's incoming webhook) and choose which events to send:
+
+```bash
+export AUTHTRACKER_ALERT_WEBHOOK='https://...'          # a secret: keep it out of git
+export AUTHTRACKER_ALERT_ON=failed,finished             # failed, stopped, finished, custom (default: failed,stopped,custom)
+authtracker test-alert                                  # sends one test message, so you can see it arrives
+```
+
+```python
+at.alert("Loss is NaN", f"epoch {epoch}", level="error")     # your own messages (the "custom" event)
+```
+
+The URL is optional: with none set, nothing is sent and nothing is logged. It is masked in `authtracker config show`,
+and a broken webhook never stops training. Details are in [Configuration](CONFIGURATION.md#alerts-optional).
+
+## Move a model to another server
 
 Changing MLflow servers, or handing a project to another team, should not mean losing the history. A model
 can be exported to a folder and imported into any other MLflow store:

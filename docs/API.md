@@ -7,7 +7,7 @@ For setup and examples, see the [README](../README.md), the [user guide](GUIDE.m
 import authtracker as at
 ```
 
-Public names: `init`, `start`, `log`, `save`, `restore`, `watch`, `finish`, `set_tags`, `current_run`,
+Public names: `init`, `start`, `log`, `save`, `restore`, `watch`, `finish`, `set_tags`, `current_run`, `alert`,
 `best_run`, `register`, `promote`, `rollback`, `load`, `export_model`, `import_model`, `export_all`, `import_all`, `load_bundle`, `run`, `Run`, `Settings`,
 `configure`, `get_settings`, and the errors `AuthTrackerError`, `ValidationError`, `PromotionError`,
 `BackendError`, `UnsupportedError`, `ConfigError`.
@@ -97,6 +97,19 @@ that stops watching. Needs PyTorch 2.1+.
 ### `at.set_tags(tags)`
 
 Adds tags (values become strings) to the current run. Runs started afterwards inherit them.
+
+### `at.alert(title, text="", level="warn")`
+
+Sends a message to the alert webhook (`AUTHTRACKER_ALERT_WEBHOOK`, see [Configuration](CONFIGURATION.md#alerts-optional)).
+`level` is `"info"`, `"warn"` or `"error"` and labels the message. It is sent only if `custom` is among the events
+chosen in `AUTHTRACKER_ALERT_ON` (it is by default). The model, experiment, owner and run id are added when a run is
+open. Returns `True` if the webhook accepted it, and `False` if no webhook is set, `custom` is not chosen, or it could
+not be reached. It never raises, so it is safe inside a training loop.
+
+```python
+if not math.isfinite(loss):
+    at.alert("Loss is NaN", f"epoch {epoch}, step {step}", level="error")
+```
 
 ### `at.finish()`
 
@@ -292,6 +305,7 @@ All inherit from `AuthTrackerError`, except `ConfigError`, which is a plain `Val
 authtracker config show     # the resolved settings, credentials masked
 authtracker doctor          # backend, tracking URI, reachability, queued operations
 authtracker sync            # upload operations queued while the server was down
+authtracker test-alert [MESSAGE]     # send one test message to AUTHTRACKER_ALERT_WEBHOOK
 authtracker export (MODEL | --all) --out FOLDER [--tracking-uri URI]      # see Moving a model
 authtracker import [--all] FOLDER [--name NAME] [--tracking-uri URI]
 ```

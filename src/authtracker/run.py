@@ -11,12 +11,14 @@ import logging
 import os
 import shutil
 import tempfile
+import time
 import traceback
 from contextlib import contextmanager
 from typing import Any, Dict, Iterable, Iterator, Mapping, Optional, Sequence, Union
 
-from .backends import Backend, get_backend
+from . import alerts as _alerts
 from . import bundle, capture, utils
+from .backends import Backend, get_backend
 from .backends.base import TAG_LEVEL
 from .errors import BackendError, UnsupportedError, ValidationError
 from .settings import Settings, get_settings
@@ -247,6 +249,24 @@ def _tag_resume(run: Run, old: Mapping[str, str], new: Mapping[str, str], n: int
     run.set_tags(updates)
 
 
+def _alert_about(settings: Settings, run: "Run", run_id: str, status: str, failure: Optional[BaseException],
+                 seconds: float) -> None:
+    """Tell the webhook, if one is set, that the experiment failed, was stopped, or finished. Never raises.
+    With no AUTHTRACKER_ALERT_WEBHOOK this does nothing at all."""
+    try:
+        if not settings.alert_webhook:
+            return
+        fields = _alerts.run_fields(run.tags, run_id)
+        if status == "FAILED":
+            _alerts.send(settings, "failed", "Run failed", "", "error", {**fields, "error": _alerts.one_line(failure)})
+        elif status == "KILLED":
+            _alerts.send(settings, "stopped", "Run stopped", "It was interrupted (Ctrl+C).", "warn", fields)
+        else:
+            _alerts.send(settings, "finished", "Run finished", "", "info", {**fields, "took": f"{seconds:.0f}s"})
+    except Exception:
+        pass                                        # an alert is a convenience: never fail a run because of it
+
+
 @contextmanager
 def _managed(backend: Backend, settings: Settings, experiment_name: str, run_name: str,
              tags: Dict[str, str], parent: Optional[Run], level: str,
@@ -269,6 +289,8 @@ def _managed(backend: Backend, settings: Settings, experiment_name: str, run_nam
                                    parent.id if parent else None)
         run = Run(backend, run_id, full_tags, settings)
     status = "FINISHED"
+    failure: Optional[BaseException] = None
+    started = time.time()
     log_capture, log_dir = None, None
     if settings.capture_logs and not getattr(backend, "captures_console", False):
         try:
@@ -292,6 +314,7 @@ def _managed(backend: Backend, settings: Settings, experiment_name: str, run_nam
         yield run
     except BaseException as e:
         status = "KILLED" if isinstance(e, KeyboardInterrupt) else "FAILED"
+        failure = e
         try:
             with tempfile.TemporaryDirectory() as d:
                 path = os.path.join(d, run._named("error.txt"))
@@ -304,6 +327,8 @@ def _managed(backend: Backend, settings: Settings, experiment_name: str, run_nam
     finally:
         _save_captured_log(run, log_capture, log_dir)
         backend.end_run(run_id, status)
+        if level == "experiment":                  # one alert per experiment, not one for every nested run
+            _alert_about(settings, run, run_id, status, failure, time.time() - started)
 
 
 def run(model: str, experiment: str, *, owner: Optional[str] = None,

@@ -59,6 +59,8 @@ def main(argv=None) -> int:
     cfg.add_argument("action", choices=["show"])
     sub.add_parser("doctor", help="check settings and backend connectivity")
     sub.add_parser("sync", help="upload operations queued while the server was unreachable")
+    ta = sub.add_parser("test-alert", help="send one test message to AUTHTRACKER_ALERT_WEBHOOK")
+    ta.add_argument("message", nargs="?", default="authtracker test alert")
     exp = sub.add_parser("export", help="write a model (runs, files, versions, aliases) to a folder")
     exp.add_argument("model", nargs="?", help="the model to export (or use --all)")
     exp.add_argument("--all", action="store_true", help="export every model that has runs")
@@ -74,6 +76,14 @@ def main(argv=None) -> int:
     s = get_settings()
     if args.cmd in ("export", "import"):
         return _transfer(args, s)
+    if args.cmd == "test-alert":
+        from . import alerts
+        if not s.alert_webhook:
+            print("FAIL: AUTHTRACKER_ALERT_WEBHOOK is not set")
+            return 1
+        sent = alerts.send(s, "custom", args.message, "Sent by `authtracker test-alert`.", "info", force=True)
+        print("sent" if sent else "FAIL: the webhook did not accept the message (see the warning above)")
+        return 0 if sent else 1
     if args.cmd == "config":
         print(json.dumps(s.masked(), indent=2))
         return 0
@@ -90,6 +100,7 @@ def main(argv=None) -> int:
 
     print(f"backend      : {s.backend}")
     print(f"tracking_uri : {s.masked()['tracking_uri']}")
+    print(f"alerts       : {s.masked()['alert_webhook'] or 'off (AUTHTRACKER_ALERT_WEBHOOK is not set)'}")
     try:
         get_backend(s).ping()
     except Exception as e:

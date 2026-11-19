@@ -57,6 +57,48 @@ Off unless you set them. They refuse a bad run **before** anything is logged.
 | `AUTHTRACKER_LOG_UPLOAD_INTERVAL` | `60` | Seconds between uploads of `output.log` while the run is open. `0` uploads only at the end. |
 | `AUTHTRACKER_SYSTEM_METRICS` | `true` | Chart CPU, memory, disk, network and NVIDIA GPU use (MLflow only). GPU charts appear when an NVIDIA GPU and driver are present. `at.init(system_metrics=False)` wins. |
 
+## Alerts (optional)
+
+A JSON message POSTed to a webhook URL when something you chose to hear about happens. Any URL that accepts JSON works,
+including the incoming webhooks of chat tools. **With no URL, nothing is sent.**
+
+| Variable | Default | Description |
+|---|---|---|
+| `AUTHTRACKER_ALERT_WEBHOOK` | none | The webhook URL (`http://` or `https://`). Optional: leave it unset and alerts are off. |
+| `AUTHTRACKER_ALERT_ON` | `failed,stopped,custom` | Which events are sent, from the list below. Only the events you list are sent. |
+
+| Event | Sent when | Level |
+|---|---|---|
+| `failed` | a run ends with an error (the error type and its first line are included) | `error` |
+| `stopped` | a run is interrupted with Ctrl+C | `warn` |
+| `finished` | a run ends well (off by default) | `info` |
+| `custom` | your code calls `at.alert(...)` | the level you give |
+
+```bash
+export AUTHTRACKER_ALERT_WEBHOOK='https://...'            # a secret, see below
+export AUTHTRACKER_ALERT_ON=failed,finished               # only failures and successes, no Ctrl+C or custom messages
+```
+
+One alert per experiment, not one per nested run. The message has the model, experiment, owner and run id, and looks
+like this:
+
+```json
+{"text": "[ERROR] Run failed\nmodel: churn\nexperiment: baseline\nowner: me\nrun_id: ...\nerror: ValueError: loss is NaN",
+ "level": "error", "title": "Run failed", "message": "", "model": "churn", "experiment": "baseline", "owner": "me",
+ "run_id": "...", "error": "ValueError: loss is NaN", "timestamp": "2026-11-19T12:00:00+00:00"}
+```
+
+`text` is the whole message ready to read, which is the field chat tools show. The other keys hold the same
+information separately, for anything that parses the JSON.
+
+**The URL is a secret.** Anyone who has it can post to your channel. Keep it in your shell, CI secrets or a secrets
+manager, never in code, YAML or git. authtracker only reads it from this variable, masks it in `authtracker config
+show` and `doctor`, and never puts it in a log line or an error message. Sending never raises and waits at most
+5 seconds, so a broken webhook cannot stop a training job.
+
+Check it with `authtracker test-alert` (it sends even if `custom` is not chosen). For your own messages use
+`at.alert("Loss is NaN", "step 1200", "error")`.
+
 ## When the server is down
 
 | Variable | Default | Description |

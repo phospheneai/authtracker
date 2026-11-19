@@ -84,6 +84,8 @@ GPU charts.
 - **Resume a run:** `at.init(..., resume=True)` continues an earlier run.
 - **Move to another server:** `authtracker export churn --out dir`, then `authtracker import dir` against the
   new server. Add `--all` for every model. MLflow only.
+- **Alerts:** set `AUTHTRACKER_ALERT_WEBHOOK` (optional) and `AUTHTRACKER_ALERT_ON=failed,finished` to POST the events
+  you choose to a webhook. `at.alert(...)` sends your own. [Details](https://github.com/phospheneai/authtracker/blob/main/docs/CONFIGURATION.md#alerts-optional)
 - **Weights & Biases:** `export AUTHTRACKER_BACKEND=wandb`. Tracking and files work; the model registry does not yet.
 - **Rules and settings** (allowed models, required tags, promotion rules) are environment variables:
   see [Configuration](https://github.com/phospheneai/authtracker/blob/main/docs/CONFIGURATION.md).
