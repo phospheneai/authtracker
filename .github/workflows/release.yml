@@ -83,7 +83,9 @@ jobs:
           git add src/authtracker/__init__.py
           git commit -m "chore: release $v [skip ci]"
           git tag -a "$v" -m "authtracker $v" -m "$(cat RELEASE_NOTES.md)"
-          git push origin HEAD:main "$v"
+          # --atomic: the branch and the tag both land or neither does, so a push to main that races this
+          # run cannot leave a tag behind without its release commit
+          git push --atomic origin HEAD:main "$v"
 
       - name: Publish to PyPI
         env:
