@@ -161,6 +161,13 @@ def code_changes(folder: Optional[str] = None) -> Dict[str, Any]:
     return {"patch": patch, "status": "saved", "untracked_skipped": skipped}
 
 
+def _scripts_dirs() -> set:
+    """Folders where installed console scripts live (`pytest`, `mlflow`, `uvicorn`, ...): never your own script."""
+    import sysconfig
+    found = {sysconfig.get_path("scripts"), os.path.join(sys.prefix, "bin"), os.path.join(sys.prefix, "Scripts")}
+    return {os.path.realpath(d) for d in found if d}
+
+
 def script_snapshot() -> Dict[str, Any]:
     """The script that is running (not a notebook, not a library): its text and its path in the repo."""
     path = getattr(sys.modules.get("__main__"), "__file__", None)
@@ -168,7 +175,8 @@ def script_snapshot() -> Dict[str, Any]:
         return {"text": None, "status": "not a script (a notebook or the interactive prompt)"}
     path = os.path.abspath(path)
     stdlib = __import__("sysconfig").get_paths().get("stdlib", "\0")
-    if "site-packages" in path or "dist-packages" in path or path.startswith(stdlib):
+    if ("site-packages" in path or "dist-packages" in path or path.startswith(stdlib)
+            or os.path.realpath(os.path.dirname(path)) in _scripts_dirs()):
         return {"text": None, "status": "not your script (a library's entry point)"}
     if os.path.getsize(path) > CODE_MAX_BYTES:
         return {"text": None, "status": f"skipped: larger than {CODE_MAX_BYTES // 1000} KB"}

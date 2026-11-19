@@ -94,6 +94,19 @@ def test_pytests_own_entry_point_is_not_mistaken_for_your_script():
     assert utils.script_snapshot()["text"] is None            # __main__ is pytest, inside site-packages
 
 
+def test_an_installed_console_script_is_not_mistaken_for_your_script(tmp_path, monkeypatch):
+    launcher = tmp_path / "bin" / "pytest"            # like /usr/bin/pytest or .venv/bin/mlflow: not in site-packages
+    launcher.parent.mkdir()
+    launcher.write_text("#!/usr/bin/python\nimport sys\nsys.exit(0)\n")
+    monkeypatch.setattr(sys.modules["__main__"], "__file__", str(launcher), raising=False)
+    monkeypatch.setattr(utils, "_scripts_dirs", lambda: {os.path.realpath(launcher.parent)})
+    assert utils.script_snapshot()["text"] is None
+    other = tmp_path / "train.py"                     # a script next to it, outside the scripts folder, is still saved
+    other.write_text("print('hi')\n")
+    monkeypatch.setattr(sys.modules["__main__"], "__file__", str(other), raising=False)
+    assert utils.script_snapshot()["text"] == "print('hi')\n"
+
+
 RUN = '''
 import authtracker as at
 at.init("m", "e", dataset_version="v1")

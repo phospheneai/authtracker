@@ -19,12 +19,19 @@ def _requirements():
     return base, extras
 
 
+def _named(requirements, name):
+    """Requirements for exactly the package `name` (so "mlflow" does not match "mlflow-skinny"), however the
+    specifier is ordered: packaging writes `mlflow<4,>=3.0`."""
+    import re
+    return [r for r in requirements if re.split(r"[<>=!~ ;\[(]", r, maxsplit=1)[0].lower() == name]
+
+
 def test_the_tracking_platform_is_chosen_with_an_extra():
     base, extras = _requirements()
     assert not any(r.lower().startswith(("mlflow", "wandb")) for r in base)     # no platform forced on anyone
-    assert any(r.startswith("mlflow>=") for r in extras["mlflow"])              # full MLflow
-    assert any(r.startswith("mlflow-skinny>=") for r in extras["mlflow-skinny"])  # the light client
-    assert not any(r.startswith("mlflow>=") for r in extras["mlflow-skinny"])   # ...and never the full one
+    assert any(">=3" in r for r in _named(extras["mlflow"], "mlflow"))                  # full MLflow
+    assert any(">=3" in r for r in _named(extras["mlflow-skinny"], "mlflow-skinny"))    # the light client
+    assert not _named(extras["mlflow-skinny"], "mlflow")                                # ...and never the full one
     assert any(r.startswith("wandb") for r in extras["wandb"])
     assert any(r.startswith("psutil") for r in extras["mlflow"] + extras["mlflow-skinny"])
 
