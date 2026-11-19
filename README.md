@@ -23,6 +23,8 @@ pip install "authtracker[mlflow]"
 import authtracker as at
 from sklearn.linear_model import LogisticRegression
 
+at.set_tracking_uri("sqlite:///mlflow.db")      # where runs go: a file here, or a server URL like "https://mlflow.example.com"
+
 X, y = [[0], [1], [2], [3]], [0, 0, 1, 1]
 
 at.init(model="model1", experiment="demo", dataset_version="v1")
@@ -39,8 +41,8 @@ at.promote("model1", version, "production")
 print(at.load("model1", "production").predict([[3]]))
 ```
 
-Runs go to a `mlflow.db` file in the current folder. Browse them with `mlflow ui`. To use a server, set
-`AUTHTRACKER_TRACKING_URI=https://mlflow.example.com`, or in code: `at.set_tracking_uri("https://mlflow.example.com")`.
+Runs go to the `mlflow.db` file in the current folder. Browse them with `mlflow ui`. To use a server, change the
+URI in that line, or leave it out and set `AUTHTRACKER_TRACKING_URI=https://mlflow.example.com` instead.
 
 ## How it works
 
