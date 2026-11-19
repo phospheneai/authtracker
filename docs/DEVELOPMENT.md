@@ -10,7 +10,7 @@ git clone https://github.com/phospheneai/authtracker.git && cd authtracker
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"          # authtracker, MLflow, W&B, scikit-learn, pytest, ruff
 pip install torch                # optional: the PyTorch bundle, watch and example 07 tests
-pytest -q                        # about 8 minutes the first time (MLflow is slow to start)
+pytest -q -n auto                # about 3 minutes on 4 CPUs (7+ minutes without -n)
 ```
 
 Python 3.10 or newer. Without torch, the tests that need it are skipped, not failed.
@@ -36,9 +36,10 @@ src/authtracker/
   backends/
     base.py          the Backend interface (the only thing the rest of the code talks to)
     mlflow_backend.py, wandb_backend.py, local.py
+    mlflow_transfer.py   export_model / import_model: the export folder format and its MLflow reader and writer
     resilient.py     retry and offline queue, wrapped around every backend
 tests/               one file per area; see tests/TESTING.md
-examples/            eight runnable, tested scripts; see examples/README.md
+examples/            nine runnable, tested scripts; see examples/README.md
 docs/                this folder
 ```
 
@@ -58,7 +59,7 @@ docs/                this folder
 ## Tests
 
 ```bash
-pytest -q                          # everything
+pytest -q -n auto                  # everything, in parallel (drop -n to debug one test)
 pytest tests/test_simple.py -q     # one file
 pytest tests/test_examples.py -q   # the examples, as real scripts (about 3 minutes)
 ruff check src tests               # lint
@@ -68,7 +69,9 @@ Add a test with every change. Backend behaviour is tested against `local`, `mlfl
 the same test, using a `params=[...]` fixture, so a feature that only works on one is caught. What has and has not
 been tried on real hardware is in [tests/TESTING.md](../tests/TESTING.md).
 
-Tests that open a repo or the examples start from a temporary folder, because MLflow caches its database
+Tests run in parallel, so each one must use its own folder (`tmp_path`) and never rely on another test's leftovers.
+A fixture that is expensive to build and only read (like the model store in `test_transfer.py`) is built once per
+module with `scope="module"`. Tests that open a repo or the examples start from a temporary folder, because MLflow caches its database
 connection per path. If you open a store from a test, use a new folder for each test and pass both
 `tracking_uri` and `registry_uri` to `MlflowClient`.
 
@@ -83,7 +86,7 @@ and checks what was recorded. A guard test fails if you add an example without a
 Releases are automatic. A push to `main` that changes `src/authtracker/**` runs
 `.github/workflows/release.yml`:
 
-1. installs `.[dev]` and CPU PyTorch and runs `pytest`;
+1. installs `.[dev]` and CPU PyTorch and runs `pytest -n auto`;
 2. bumps the patch number in `src/authtracker/__init__.py` (`0.0.3` becomes `0.0.4`);
 3. builds the wheel and sdist and checks them with `twine check --strict`;
 4. commits `chore: release <version> [skip ci]`, creates the annotated tag `<version>` (no `v`) whose message

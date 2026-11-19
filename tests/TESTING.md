@@ -7,11 +7,12 @@ What has been tested, and what is left for later. Update this file when you test
 ```
 pip install -e ".[dev]"
 pip install torch          # optional: without it the PyTorch tests are skipped
-pytest
+pytest -n auto      # in parallel; plain `pytest` runs them one at a time
 ```
 
-262 tests pass and 3 are skipped (a backend/parameter combination that does not apply). The run takes
-about 7 minutes, mostly MLflow start-up.
+279 tests pass and 3 are skipped (a backend/parameter combination that does not apply). One at a time the run
+takes about 7 minutes, mostly MLflow start-up (each test makes its own database) and the examples (each is a
+real script). In parallel on 4 CPUs it takes about 3 minutes.
 
 | Area | Where |
 |---|---|
@@ -26,6 +27,7 @@ about 7 minutes, mostly MLflow start-up.
 | W&B (the real SDK, offline mode) | `test_wandb.py` |
 | The backend contract every backend must pass | `test_contract.py` (`authtracker.testing.check_backend`) |
 | Packaging: extras, the core never imports MLflow | `test_packaging.py` |
+| Moving models between stores: export, import, `--all`, the CLI | `test_transfer.py` |
 | **Every example, run as a real script** | `test_examples.py` |
 
 Backend behaviour is tested on `local`, `mlflow` (SQLite) and W&B offline with the same tests.

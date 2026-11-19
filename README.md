@@ -102,6 +102,20 @@ at.save(net, flavor="bundle", init_args={"hidden": 32})
 net = at.load("model1", "production")       # your Classifier, with its weights
 ```
 
+## Move a model to another server
+
+Change MLflow servers without losing history. A model's runs, metrics, files, model files, versions and aliases
+go into a plain folder, and from there into any other MLflow store:
+
+```
+authtracker export churn --out churn-export --tracking-uri http://old-server:5000
+authtracker import churn-export --tracking-uri http://new-server:5000
+```
+
+Add `--all` to move every model at once. In Python: `at.export_model("churn", "churn-export")` and `at.import_model("churn-export")`, or `at.export_all` / `at.import_all`. Version numbers
+and aliases are kept, each imported run records the id it had, and an import never adds to a model that already
+has runs. MLflow only. Details are in the [API reference](https://github.com/phospheneai/authtracker/blob/main/docs/API.md#moving-a-model-between-stores).
+
 ## Choose a backend
 
 ```
@@ -130,6 +144,8 @@ All of them are in the [configuration reference](https://github.com/phospheneai/
 authtracker config show     # the resolved settings
 authtracker doctor          # is the backend reachable?
 authtracker sync            # upload operations queued while the server was down
+authtracker export MODEL --out FOLDER   # move a model (or --all) to another MLflow (see above)
+authtracker import FOLDER [--all]
 ```
 
 ## Good to know
@@ -154,7 +170,7 @@ authtracker sync            # upload operations queued while the server was down
 
 ## Status
 
-**Experimental.** Tested with 250+ automated tests and eight runnable examples, on macOS with MLflow
+**Experimental** (a `0.0.x` release). Tested with 270+ automated tests and nine runnable examples, on macOS with MLflow
 (SQLite) and W&B in offline mode. Not yet verified: a remote or login-protected MLflow server, W&B online
 mode, NVIDIA GPUs, multi-GPU jobs, and Windows. Expect rough edges and report them as issues.
 
@@ -162,7 +178,7 @@ mode, NVIDIA GPUs, multi-GPU jobs, and Windows. Expect rough edges and report th
 
 ```
 pip install -e ".[dev]"
-pytest
+pytest -n auto        # the tests run in parallel
 ```
 
 See the [developer guide](https://github.com/phospheneai/authtracker/blob/main/docs/DEVELOPMENT.md). Releases are

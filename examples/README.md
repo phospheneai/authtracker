@@ -1,6 +1,6 @@
 # Examples
 
-Eight small, runnable scripts. Each one **checks its own claims** (it stops with an error if something
+Nine small, runnable scripts. Each one **checks its own claims** (it stops with an error if something
 does not behave as described), and each one is run by `tests/test_examples.py`, which also opens the
 resulting MLflow database to check what was recorded. So an example that stops working fails the tests.
 
@@ -14,6 +14,7 @@ resulting MLflow database to check what was recorded. So an example that stops w
 | [`06_code_lineage.py`](06_code_lineage.py) | A git project: commit, branch and remote (token removed) on every run, uncommitted changes as a patch, rebuilding a run's exact code. | git |
 | [`07_pytorch_bundle.py`](07_pytorch_bundle.py) (+ [`pytorch_bundle/architecture.py`](pytorch_bundle/architecture.py)) | Plain PyTorch saved as a folder, versioned, loaded back as your own class, `extras`, `load_bundle`, fine-tuning into the next version. | torch |
 | [`08_wandb_backend.py`](08_wandb_backend.py) | The same calls on Weights & Biases (offline, no account), and the clear error for the registry, which W&B does not support yet. | `authtracker[wandb]` |
+| [`09_export_import.py`](09_export_import.py) | Move a model (runs, metrics, files, versions, aliases) from one store to another and keep working on it. | scikit-learn |
 
 ## Run them
 

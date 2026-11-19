@@ -424,7 +424,49 @@ net = at.load("detector", "production")                  # net.class_names, net.
 
   They follow the model through fine-tuning: load, change `net.threshold`, save again, and the new value is kept.
 
-### Where the code came from
+### Move a model to another server
+
+Changing MLflow servers, or handing a project to another team, should not mean losing the history. A model
+can be exported to a folder and imported into any other MLflow store:
+
+```python
+at.export_model("churn", "churn-export")        # reads from your current store
+# ... point authtracker at the new store (AUTHTRACKER_TRACKING_URI, or at.configure(...)) ...
+at.import_model("churn-export")
+```
+
+or on the command line (`--tracking-uri` picks the store for that one command):
+
+```bash
+authtracker export churn --out churn-export --tracking-uri http://old-server:5000
+authtracker import churn-export --tracking-uri http://new-server:5000
+```
+
+To move **everything** at once, add `--all` (or use `at.export_all` / `at.import_all`):
+
+```bash
+authtracker export --all --out everything --tracking-uri http://old-server:5000
+authtracker import --all everything --tracking-uri http://new-server:5000
+```
+
+Every model that has runs gets its own sub-folder. If one model cannot be imported (for example it already exists
+on the new server), it is reported as failed, the others still go in, and the command exits with 1.
+
+What moves: all runs of the model at the three levels, parameters, tags, every metric point (with its step and
+time), the files on each run, the model files, and the registered versions with their tags and aliases
+(`production`, `staging`, `previous-production`). What changes: run ids (every imported run keeps its old id in the
+`authtracker.imported_run_id` tag), and nothing else you can see. After the import `best_run`, `load`, `promote`
+and `rollback` work as before, and the next `register` makes the next version.
+
+Safety: the import refuses to add to a model that already has runs or versions, so nothing is duplicated. Import
+under another name with `name=` / `--name` if you want a copy next to the original. The folder is plain files
+(`manifest.json`, `runs/`, `models/`): copy it, zip it, or keep it as a backup. See
+[`examples/09_export_import.py`](../examples/09_export_import.py).
+
+Only MLflow supports this for now. It was built after trying the `mlflow-export-import` package, which stops on
+MLflow 3 model versions (`models:/m-...`), needs an HTTP server and cannot read a SQLite or file store.
+
+## Where the code came from
 
 Every experiment run stores the code that produced it, by default:
 

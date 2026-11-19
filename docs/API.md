@@ -8,12 +8,13 @@ import authtracker as at
 ```
 
 Public names: `init`, `start`, `log`, `save`, `restore`, `watch`, `finish`, `set_tags`, `current_run`,
-`best_run`, `register`, `promote`, `rollback`, `load`, `load_bundle`, `run`, `Run`, `Settings`,
+`best_run`, `register`, `promote`, `rollback`, `load`, `export_model`, `import_model`, `export_all`, `import_all`, `load_bundle`, `run`, `Run`, `Settings`,
 `configure`, `get_settings`, and the errors `AuthTrackerError`, `ValidationError`, `PromotionError`,
 `BackendError`, `UnsupportedError`, `ConfigError`.
 
 - [Tracking](#tracking): `init`, `start`, `log`, `save`, `restore`, `watch`, `set_tags`, `finish`, `current_run`
 - [Versioning](#versioning): `best_run`, `register`, `promote`, `rollback`, `load`
+- [Moving a model](#moving-a-model-between-stores): `export_model`, `import_model`, `export_all`, `import_all`
 - [Bundles](#bundles): `save(flavor="bundle")`, `load_bundle`
 - [The `with` API](#the-with-api): `run`, `Run`
 - [Settings](#settings): `Settings`, `configure`, `get_settings`
@@ -142,6 +143,58 @@ load a model saved with `flavor="pickle"` (it runs code from the file).
 
 ---
 
+## Moving a model between stores
+
+Copy a whole model to another MLflow server or store, for example when you change servers. MLflow backend only
+(other backends raise `UnsupportedError`).
+
+### `at.export_model(name, dest)`
+
+Writes the model `name` into the new or empty folder `dest`: every run of its experiment (the three levels), their
+parameters, tags, **every metric point with its step and time**, the files saved on each run, the files of every
+model, and the registered versions with their tags, descriptions and aliases. Returns a summary
+`{"model", "path", "runs", "metrics", "models", "versions", "aliases"}`. Raises `ValidationError` if the model does
+not exist or `dest` has files in it.
+
+### `at.import_model(src, name=None)`
+
+Reads a folder written by `export_model` into the current store, as `name` (default: the exported name). Returns
+`{"model", "runs", "metrics", "models", "versions", "aliases"}`, where `versions` maps each old version number to
+the new one.
+
+- **Run ids are new.** Parents, the `authtracker.model_uri` tag and the run each version came from are rewritten
+  to the new ids. Every imported run gets the tag `authtracker.imported_run_id` with the id it had before.
+- **Version numbers and aliases are kept** when the target has no versions yet (it must not, see below).
+- **It never adds to existing work.** It raises `ValidationError` if the model already has runs, or a registered
+  model of that name already has versions. Import under another `name` instead.
+- `name` also retags the runs: the `model` tag becomes the new name, so `best_run` finds them.
+- The folder format is versioned. A folder from a newer authtracker is refused with a message to upgrade.
+
+Not carried over: deleted runs, MLflow traces, logged datasets, and metrics logged on a model rather than a run.
+System metrics (`system/...`) are copied like any other metric.
+
+### `at.export_all(dest)` and `at.import_all(src)`
+
+The same for **every model that has runs** (empty experiments are skipped), into one folder with a sub-folder per
+model. `export_all` returns `{"path", "count", "models": {name: summary}}`.
+
+`import_all` imports each model like `import_model` does. A model that cannot be imported, for example one that
+already exists here, is listed under `"failed"` with the reason and the others still go in:
+`{"imported": {name: summary}, "failed": {name: reason}, "count"}`. A folder from `export_model` is refused by
+`import_all`, and the other way round, with a message that names the right call.
+
+The same from the command line, one store at a time:
+
+```
+authtracker export churn --out churn-export --tracking-uri http://old-server:5000
+authtracker import churn-export --tracking-uri http://new-server:5000 [--name churn-v2]
+
+authtracker export --all --out everything --tracking-uri http://old-server:5000     # every model
+authtracker import --all everything --tracking-uri http://new-server:5000
+```
+
+---
+
 ## Bundles
 
 A PyTorch model saved as a folder: the architecture file, the weights and what is needed to run it.
@@ -239,9 +292,13 @@ All inherit from `AuthTrackerError`, except `ConfigError`, which is a plain `Val
 authtracker config show     # the resolved settings, credentials masked
 authtracker doctor          # backend, tracking URI, reachability, queued operations
 authtracker sync            # upload operations queued while the server was down
+authtracker export (MODEL | --all) --out FOLDER [--tracking-uri URI]      # see Moving a model
+authtracker import [--all] FOLDER [--name NAME] [--tracking-uri URI]
 ```
 
-`doctor` exits 1 when the backend cannot be reached. `sync` exits 1 when something stays queued.
+`doctor` exits 1 when the backend cannot be reached. `sync` exits 1 when something stays queued. `export` and
+`import` exit 1 with a `FAIL:` message when they are refused, and `import --all` exits 1 if any model failed. `--tracking-uri` overrides the store for that one
+command (both the tracking and the registry address).
 
 ---
 
