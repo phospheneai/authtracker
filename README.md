@@ -1,7 +1,8 @@
 # authtracker
 
-[![PyPI](https://img.shields.io/pypi/v/authtracker)]
-[![License](https://img.shields.io/pypi/l/authtracker)](https://github.com/phospheneai/authtracker/blob/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/authtracker?color=blue)](https://pypi.org/project/authtracker/)
+[![License](https://img.shields.io/pypi/l/authtracker?color=blue)](https://github.com/phospheneai/authtracker/blob/main/LICENSE)
+
 
 Experiment tracking and model versioning with a handful of calls. The same code runs on **MLflow**
 (the default) or **Weights & Biases**, and you switch with one environment variable. Every run also
