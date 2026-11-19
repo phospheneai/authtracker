@@ -3,24 +3,20 @@
 [![PyPI](https://img.shields.io/pypi/v/authtracker?color=blue)](https://pypi.org/project/authtracker/)
 [![License](https://img.shields.io/pypi/l/authtracker?color=blue)](https://github.com/phospheneai/authtracker/blob/main/LICENSE)
 
-
 Experiment tracking and model versioning with a handful of calls. The same code runs on **MLflow**
-(the default) or **Weights & Biases**, and you switch with one environment variable. Every run also
-records the code, data and environment that produced it, so you can reproduce it later.
-
-Small by design: no server of its own, settings only from environment variables, and other platforms
-plug in as a single class.
+(the default) or **Weights & Biases**. Every run also records the code, data and environment that
+produced it, so you can reproduce it later.
 
 - [API reference](https://github.com/phospheneai/authtracker/blob/main/docs/API.md)
 - [User guide](https://github.com/phospheneai/authtracker/blob/main/docs/GUIDE.md)
-- [Configuration (environment variables)](https://github.com/phospheneai/authtracker/blob/main/docs/CONFIGURATION.md)
-- [Developer guide](https://github.com/phospheneai/authtracker/blob/main/docs/DEVELOPMENT.md)
+- [Configuration](https://github.com/phospheneai/authtracker/blob/main/docs/CONFIGURATION.md)
 - [Examples](https://github.com/phospheneai/authtracker/blob/main/examples/README.md)
+- [Developer guide](https://github.com/phospheneai/authtracker/blob/main/docs/DEVELOPMENT.md)
 
 ## Quickstart
 
 ```
-pip install authtracker
+pip install "authtracker[mlflow]"
 ```
 
 ```python
@@ -43,12 +39,10 @@ at.promote("model1", version, "production")
 print(at.load("model1", "production").predict([[3]]))
 ```
 
-With no setup, runs go to a `mlflow.db` file in the current folder. To browse them, run `mlflow ui`.
-To use a server, set `AUTHTRACKER_TRACKING_URI=https://mlflow.example.com` first.
+Runs go to a `mlflow.db` file in the current folder. Browse them with `mlflow ui`, or send them to a server
+with `AUTHTRACKER_TRACKING_URI=https://mlflow.example.com`.
 
 ## How it works
-
-Every run lives in three levels:
 
 ```
 fake-image                  <- model        (an MLflow experiment, a W&B project)
@@ -59,131 +53,68 @@ fake-image                  <- model        (an MLflow experiment, a W&B project
 
 | Call | What it does |
 |---|---|
-| `at.init(model, experiment, ...)` | Opens the experiment. Takes `config="train.yaml"` and `dataset={...}` too. |
-| `at.start(name, config={...})` | Starts a run (one trial) and closes the previous one. |
-| `at.log({...})` | Logs metrics. The step counts up by itself. |
-| `at.save(thing)` | Saves a file, a folder, text (with `name=`) or a model. |
-| `at.best_run(model, experiment, metric)` | The best run by a metric. |
-| `at.register()` / `at.promote(model, version, alias)` / `at.rollback(model)` | Versions and aliases. |
-| `at.load(model, alias)` | Loads a model by alias, never by run id. |
+| `at.init(model, experiment)` | Opens the experiment. |
+| `at.start(name, config={...})` | Starts a run (one trial). |
+| `at.log({...})` | Logs metrics. |
+| `at.save(thing)` | Saves a file, folder, text or model. |
+| `at.best_run(...)`, `at.register()`, `at.promote(...)`, `at.load(...)` | Pick, version and load a model. |
 
-Runs close when the script ends, as `FAILED` with the traceback saved if it ended with an error.
-In a notebook, call `at.finish()`.
+Runs close when the script ends. In a notebook, call `at.finish()`.
 
 ## Install
 
-| Install | Use it for |
+| | |
 |---|---|
-| `pip install "authtracker[mlflow]"` | MLflow, the default. Can also run a server or a local SQLite store. |
+| `pip install "authtracker[mlflow]"` | MLflow, the default. Also charts NVIDIA GPU use when a GPU is there. |
 | `pip install "authtracker[mlflow-skinny]"` | A light client that only sends runs to an existing MLflow server. |
 | `pip install "authtracker[wandb]"` | Weights & Biases. |
-| `pip install "authtracker[gpu]"` | Also chart NVIDIA GPU use. Combine with the ones above. |
 
-A plain `pip install authtracker` installs only the core, with no tracking platform, so pick one of the above.
-Needs Python 3.10+. From a checkout, use `pip install -e ".[dev]"`.
+Python 3.10+. From a checkout: `pip install -e ".[dev]"`.
 
 ## What each run records
 
-- **Code:** git commit, branch, remote (a token in it is removed), the uncommitted changes as a patch, and
-  your script. Rebuild the exact code of any run from them.
-- **Data:** name, version, size and a fingerprint (hash) of your dataset folder.
-- **Settings:** a training YAML, saved with the run and logged as parameters.
-- **Environment:** package versions, `requirements.txt`, and the container image.
-- **Output:** everything the run prints, saved as `output.log`, plus CPU, memory and GPU charts.
+Git commit, branch and uncommitted changes · your script · dataset name, version and hash · the training YAML
+as parameters · package versions and container image · everything printed (`output.log`) · CPU, memory and
+GPU charts.
 
-## Models
+## More
 
-`at.save(model)` detects sklearn, XGBoost, LightGBM, PyTorch and others. For plain PyTorch, save a
-**bundle**: a folder with your architecture file, the weights and a sample inference script. Loading it
-gives you your own class back.
-
-```python
-at.save(net, flavor="bundle", init_args={"hidden": 32})
-net = at.load("model1", "production")       # your Classifier, with its weights
-```
-
-## Move a model to another server
-
-Change MLflow servers without losing history. A model's runs, metrics, files, model files, versions and aliases
-go into a plain folder, and from there into any other MLflow store:
-
-```
-authtracker export churn --out churn-export --tracking-uri http://old-server:5000
-authtracker import churn-export --tracking-uri http://new-server:5000
-```
-
-Add `--all` to move every model at once. In Python: `at.export_model("churn", "churn-export")` and `at.import_model("churn-export")`, or `at.export_all` / `at.import_all`. Version numbers
-and aliases are kept, each imported run records the id it had, and an import never adds to a model that already
-has runs. MLflow only. Details are in the [API reference](https://github.com/phospheneai/authtracker/blob/main/docs/API.md#moving-a-model-between-stores).
-
-## Choose a backend
-
-```
-export AUTHTRACKER_BACKEND=mlflow      # the default
-export AUTHTRACKER_BACKEND=wandb       # Weights & Biases
-```
-
-Your training code does not change. On W&B, tracking, files and model artifacts work. The model registry
-(`register`, `promote`, `rollback`, `load`) does not yet and raises a clear error.
-
-## Configuration
-
-Everything is an environment variable, so the same code runs anywhere. A few common ones:
-
-| Variable | What it does |
-|---|---|
-| `AUTHTRACKER_BACKEND` | `mlflow` (default), `wandb` or `local`. |
-| `AUTHTRACKER_TRACKING_URI` | Your MLflow server or store. |
-| `AUTHTRACKER_REQUIRED_TAGS` | Tags every run must have, for example `owner,dataset_version`. |
-| `AUTHTRACKER_ALLOWED_MODELS` | Allowed model names. |
-| `AUTHTRACKER_PROMOTE_METRIC` / `_MIN` / `_MUST_BEAT_PROD` | Rules that must pass before `production`. |
-
-All of them are in the [configuration reference](https://github.com/phospheneai/authtracker/blob/main/docs/CONFIGURATION.md).
+- **PyTorch models:** `at.save(net, flavor="bundle", init_args={...})` stores your architecture file and weights;
+  `at.load` gives your own class back. [Guide](https://github.com/phospheneai/authtracker/blob/main/docs/GUIDE.md#pytorch-models-as-a-bundle-plain-files-the-real-class-back)
+- **Resume a run:** `at.init(..., resume=True)` continues an earlier run.
+- **Move to another server:** `authtracker export churn --out dir`, then `authtracker import dir` against the
+  new server. Add `--all` for every model. MLflow only.
+- **Weights & Biases:** `export AUTHTRACKER_BACKEND=wandb`. Tracking and files work; the model registry does not yet.
+- **Rules and settings** (allowed models, required tags, promotion rules) are environment variables:
+  see [Configuration](https://github.com/phospheneai/authtracker/blob/main/docs/CONFIGURATION.md).
 
 ```
 authtracker config show     # the resolved settings
 authtracker doctor          # is the backend reachable?
-authtracker sync            # upload operations queued while the server was down
-authtracker export MODEL --out FOLDER   # move a model (or --all) to another MLflow (see above)
-authtracker import FOLDER [--all]
 ```
-
-## Good to know
-
-- One run is open at a time per process. For parallel trials, use separate processes.
-- With several GPUs or nodes, call authtracker from the main process (rank 0) only.
-- A tracking outage never stops training. Writes are retried, queued on disk and uploaded later.
-  Saving a model, `register`, `load` and `best_run` need the server and raise an error instead.
-- `at.init(..., resume=True)` continues an earlier run. It restores the record, not your model:
-  save a checkpoint with `at.save` and get it back with `at.restore`.
-- Models saved as pickles can run code when loaded. Only load models you trust.
 
 ## Troubleshooting
 
 | You see | Do this |
 |---|---|
 | `Backend 'mlflow' needs MLflow` | Install an extra: `pip install "authtracker[mlflow]"`. |
-| `Unknown model ...` or `Missing required tags` | A rule is set. Check `authtracker config show`. |
 | `BackendError` on `register` or `load` | The server could not be reached. Run `authtracker doctor`. |
-| `... cannot change parameters it already has` | You resumed a run with a different value. Use a new run (`resume=False`). |
-| Runs show in the wrong place | The UI and your script use different stores. Point both at the same `AUTHTRACKER_TRACKING_URI`. |
+| `Unknown model ...` or `Missing required tags` | A rule is set. Check `authtracker config show`. |
 
 ## Status
 
-**Experimental** (a `0.0.x` release). Tested with 270+ automated tests and nine runnable examples, on macOS with MLflow
-(SQLite) and W&B in offline mode. Not yet verified: a remote or login-protected MLflow server, W&B online
-mode, NVIDIA GPUs, multi-GPU jobs, and Windows. Expect rough edges and report them as issues.
+Experimental (`0.0.x`). About 280 automated tests and nine runnable examples, run on macOS with MLflow (SQLite)
+and W&B offline. Not yet verified: a remote MLflow server, W&B online, NVIDIA GPUs, multi-GPU, Windows.
 
 ## Development
 
 ```
 pip install -e ".[dev]"
-pytest -n auto        # the tests run in parallel
+pytest -n auto
 ```
 
-See the [developer guide](https://github.com/phospheneai/authtracker/blob/main/docs/DEVELOPMENT.md). Releases are
-automatic: a merge to `main` that changes `src/authtracker/` runs the tests, bumps the version, tags it and
-publishes to PyPI.
+Releases are automatic: a merge to `main` that changes `src/authtracker/` runs the tests, bumps the version,
+tags it and publishes to PyPI. See the [developer guide](https://github.com/phospheneai/authtracker/blob/main/docs/DEVELOPMENT.md).
 
 ## License
 

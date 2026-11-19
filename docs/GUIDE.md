@@ -21,7 +21,7 @@ fake-image                  <- model        (an MLflow experiment)
 pip install "authtracker[mlflow]"          # recommended: MLflow, the default backend (about 490 MB with its libraries)
 pip install "authtracker[mlflow-skinny]"   # light: only sends runs to an existing MLflow server (about 60 MB)
 pip install "authtracker[wandb]"           # Weights & Biases instead of, or next to, MLflow
-pip install "authtracker[mlflow,gpu]"      # extras can be combined; gpu adds NVIDIA GPU charts
+pip install "authtracker[mlflow,wandb]"     # extras can be combined (NVIDIA GPU charts are included with mlflow, except on a Mac)
 
 # from a checkout of this repository, replace "authtracker" with "-e ./authtracker"
 ```
@@ -685,7 +685,8 @@ authtracker sync            # uploads operations queued while the server was dow
 ## System metrics (CPU, memory, GPU)
 
 On by default for MLflow, so every run shows how busy the machine was. `psutil` comes with
-authtracker. For NVIDIA GPU charts also install `authtracker[gpu]`.
+authtracker. NVIDIA GPU charts come with it too, through `nvidia-ml-py` (installed everywhere except on a Mac; with no
+NVIDIA driver it does nothing). The old `authtracker[gpu]` extra still works.
 
 ```bash
 export AUTHTRACKER_SYSTEM_METRICS=false                # switch them off for this machine

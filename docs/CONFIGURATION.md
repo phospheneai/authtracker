@@ -55,7 +55,7 @@ Off unless you set them. They refuse a bad run **before** anything is logged.
 | `AUTHTRACKER_SAVE_CODE` | `true` | Save the uncommitted changes (`code_changes.patch`) and the running script. A file that looks like it holds a secret is skipped. |
 | `AUTHTRACKER_CAPTURE_LOGS` | `true` | Save everything the run prints as `output.log` (MLflow and `local`; W&B records this itself). |
 | `AUTHTRACKER_LOG_UPLOAD_INTERVAL` | `60` | Seconds between uploads of `output.log` while the run is open. `0` uploads only at the end. |
-| `AUTHTRACKER_SYSTEM_METRICS` | `true` | Chart CPU, memory, disk, network and NVIDIA GPU use (MLflow only). `at.init(system_metrics=False)` wins. |
+| `AUTHTRACKER_SYSTEM_METRICS` | `true` | Chart CPU, memory, disk, network and NVIDIA GPU use (MLflow only). GPU charts appear when an NVIDIA GPU and driver are present. `at.init(system_metrics=False)` wins. |
 
 ## When the server is down
 
