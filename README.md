@@ -19,7 +19,7 @@ plug in as a single class.
 ## Quickstart
 
 ```
-pip install "authtracker[mlflow]"
+pip install authtracker
 ```
 
 ```python
