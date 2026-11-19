@@ -78,7 +78,8 @@ def test_a_generic_webhook_gets_structured_json(tmp_path, hook):
 
 
 def test_the_payload_has_a_readable_text_and_separate_fields_and_never_the_url():
-    body = alerts.payload("Run failed", "details", "error", {"model": "churn", "run_id": None, "owner": "me"})
+    body = alerts.Alert(alerts.FAILED, "Run failed", "details", "error",
+                        {"model": "churn", "run_id": None, "owner": "me"}).payload()
     assert body["text"] == "[ERROR] Run failed\ndetails\nmodel: churn\nowner: me"      # empty fields are left out
     assert (body["level"], body["title"], body["message"], body["model"]) == ("error", "Run failed", "details", "churn")
     assert "run_id" not in body and "timestamp" in body
@@ -94,9 +95,15 @@ def test_only_the_chosen_events_are_sent(tmp_path, hook):
     at.configure(settings(tmp_path, alert_webhook=url, alert_on=()))              # nothing chosen: nothing sent
     assert at.alert("and again") is False
     assert [m["title"] for m in received] == ["mine"]
-    # the event name has to be one that exists
+
+
+def test_a_typo_in_an_event_or_level_fails_at_once(tmp_path):
     with pytest.raises(ValueError, match="unknown alert event"):
-        alerts.send(settings(tmp_path, alert_webhook=url), "nope", "x")
+        alerts.Alert("nope", "x")
+    with pytest.raises(ValueError, match="unknown alert level"):
+        alerts.Alert(alerts.CUSTOM, "x", level="loud")
+    with pytest.raises(ValueError, match="unknown alert level"):
+        at.alert("x", level="loud")                                # fails even with no webhook, so a typo is found early
 
 
 # ------------------------------------------------------------------ runs alert by themselves

@@ -104,7 +104,8 @@ Sends a message to the alert webhook (`AUTHTRACKER_ALERT_WEBHOOK`, see [Configur
 `level` is `"info"`, `"warn"` or `"error"` and labels the message. It is sent only if `custom` is among the events
 chosen in `AUTHTRACKER_ALERT_ON` (it is by default). The model, experiment, owner and run id are added when a run is
 open. Returns `True` if the webhook accepted it, and `False` if no webhook is set, `custom` is not chosen, or it could
-not be reached. It never raises, so it is safe inside a training loop.
+not be reached. Delivery problems never raise, so it is safe inside a training loop. A level that is not one of the three raises
+`ValueError` at once, so a typo is found on the first call.
 
 ```python
 if not math.isfinite(loss):

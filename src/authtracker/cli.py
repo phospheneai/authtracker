@@ -52,6 +52,19 @@ def _transfer(args, settings) -> int:
     return 0
 
 
+def _test_alert(settings, message: str) -> int:
+    from . import alerts
+    if not settings.alert_webhook:
+        print("FAIL: AUTHTRACKER_ALERT_WEBHOOK is not set")
+        return 1
+    alert = alerts.Alert(alerts.CUSTOM, message, "Sent by `authtracker test-alert`.", "info")
+    if alerts.send(settings, alert, force=True):
+        print("sent")
+        return 0
+    print("FAIL: the webhook did not accept the message (see the warning above)")
+    return 1
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="authtracker")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -77,13 +90,7 @@ def main(argv=None) -> int:
     if args.cmd in ("export", "import"):
         return _transfer(args, s)
     if args.cmd == "test-alert":
-        from . import alerts
-        if not s.alert_webhook:
-            print("FAIL: AUTHTRACKER_ALERT_WEBHOOK is not set")
-            return 1
-        sent = alerts.send(s, "custom", args.message, "Sent by `authtracker test-alert`.", "info", force=True)
-        print("sent" if sent else "FAIL: the webhook did not accept the message (see the warning above)")
-        return 0 if sent else 1
+        return _test_alert(s, args.message)
     if args.cmd == "config":
         print(json.dumps(s.masked(), indent=2))
         return 0

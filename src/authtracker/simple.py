@@ -23,7 +23,7 @@ from . import dataset as dataset_module
 from .errors import AuthTrackerError, ValidationError
 from .run import Run
 from .run import run as _open_experiment
-from .settings import Settings
+from .settings import Settings, get_settings
 from .watch import watch as _watch
 
 
@@ -201,13 +201,11 @@ def alert(title: str, text: str = "", level: str = "warn") -> bool:
     """Send a message to the alert webhook (AUTHTRACKER_ALERT_WEBHOOK), for example when the loss turns NaN.
 
     level is "info", "warn" or "error": it labels the message. It is sent only if "custom" is among the events chosen
-    in AUTHTRACKER_ALERT_ON (it is by default). The model, experiment and run are added when a run is open. Returns True if the webhook took it, and False
+    in AUTHTRACKER_ALERT_ON (it is by default). The model, experiment and run are added when a run is open. Raises ValueError for a level that is not info, warn or error (a typo). Returns True if the webhook took it, and False
     when no webhook is set, "custom" is not chosen, or it could not be reached: it never raises, so it is safe inside a training loop.
     """
-    from .settings import get_settings
-    settings = get_settings()
     fields = _alerts.run_fields(_state.parent.tags, current_run().id) if _state is not None else {}
-    return _alerts.send(settings, "custom", title, text, level, fields)
+    return _alerts.send(get_settings(), _alerts.Alert(_alerts.CUSTOM, title, text, level, fields))
 
 
 def set_tags(tags: Mapping[str, Any]) -> None:

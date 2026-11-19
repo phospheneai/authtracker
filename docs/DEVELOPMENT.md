@@ -31,6 +31,7 @@ src/authtracker/
   watch.py           gradient norms
   utils.py           git info, environment capture, container image, secret checks
   cli.py             `authtracker config | doctor | sync`
+  alerts.py          webhook alerts: the Alert object, send, and the hook the runs call when they end
   testing.py         check_backend, the contract every backend must pass
   errors.py          the error classes
   backends/
@@ -80,6 +81,14 @@ A fixture that is expensive to build and only read (like the model store in `tes
 module with `scope="module"`. Tests that open a repo or the examples start from a temporary folder, because MLflow caches its database
 connection per path. If you open a store from a test, use a new folder for each test and pass both
 `tracking_uri` and `registry_uri` to `MlflowClient`.
+
+## Alerts
+
+All of it is in `src/authtracker/alerts.py`, and `run.py` makes one call into it (`notify_run_end`).
+- **A new event:** add its name to `ALERT_EVENTS` in `settings.py` (that also makes it valid in `AUTHTRACKER_ALERT_ON`),
+  then build `Alert(<event>, title, ...)` where it happens and pass it to `send`.
+- **Another way to deliver** (email, a queue): write a function like `_post(url, payload)` and pass it as `send(post=...)`.
+- Keep the rules: delivery never raises, the URL is never logged or put in an error message, and with no URL nothing happens.
 
 ## Examples
 

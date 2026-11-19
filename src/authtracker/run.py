@@ -249,24 +249,6 @@ def _tag_resume(run: Run, old: Mapping[str, str], new: Mapping[str, str], n: int
     run.set_tags(updates)
 
 
-def _alert_about(settings: Settings, run: "Run", run_id: str, status: str, failure: Optional[BaseException],
-                 seconds: float) -> None:
-    """Tell the webhook, if one is set, that the experiment failed, was stopped, or finished. Never raises.
-    With no AUTHTRACKER_ALERT_WEBHOOK this does nothing at all."""
-    try:
-        if not settings.alert_webhook:
-            return
-        fields = _alerts.run_fields(run.tags, run_id)
-        if status == "FAILED":
-            _alerts.send(settings, "failed", "Run failed", "", "error", {**fields, "error": _alerts.one_line(failure)})
-        elif status == "KILLED":
-            _alerts.send(settings, "stopped", "Run stopped", "It was interrupted (Ctrl+C).", "warn", fields)
-        else:
-            _alerts.send(settings, "finished", "Run finished", "", "info", {**fields, "took": f"{seconds:.0f}s"})
-    except Exception:
-        pass                                        # an alert is a convenience: never fail a run because of it
-
-
 @contextmanager
 def _managed(backend: Backend, settings: Settings, experiment_name: str, run_name: str,
              tags: Dict[str, str], parent: Optional[Run], level: str,
@@ -328,7 +310,7 @@ def _managed(backend: Backend, settings: Settings, experiment_name: str, run_nam
         _save_captured_log(run, log_capture, log_dir)
         backend.end_run(run_id, status)
         if level == "experiment":                  # one alert per experiment, not one for every nested run
-            _alert_about(settings, run, run_id, status, failure, time.time() - started)
+            _alerts.notify_run_end(settings, run.tags, run_id, status, failure, time.time() - started)
 
 
 def run(model: str, experiment: str, *, owner: Optional[str] = None,
