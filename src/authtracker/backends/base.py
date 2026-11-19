@@ -118,6 +118,26 @@ class Backend(ABC):
         path (the caller removes it); otherwise return None."""
         return None
 
+    # ------------------------------------------------------------------ optional: moving a model between stores
+    def export_model(self, name: str, dest: str) -> Dict[str, Any]:
+        """Write the model `name` (its runs, files, model files, versions and aliases) into the empty folder
+        `dest` and return a summary."""
+        raise self._unsupported("exporting models")
+
+    def import_model(self, src: str, name: Optional[str] = None) -> Dict[str, Any]:
+        """Read a folder written by `export_model` into this store (as `name`, default: its own name) and
+        return a summary with the new version numbers."""
+        raise self._unsupported("importing models")
+
+    def export_all(self, dest: str) -> Dict[str, Any]:
+        """`export_model` for every model that has runs, into one folder."""
+        raise self._unsupported("exporting models")
+
+    def import_all(self, src: str) -> Dict[str, Any]:
+        """Import every model of a folder written by `export_all`. Models that cannot be imported are
+        reported under "failed" and the rest still go in."""
+        raise self._unsupported("importing models")
+
     # ------------------------------------------------------------------ optional: registry
     def register(self, run_id: str, name: str, model_uri: str) -> str:
         """Create a new model version and return its version string."""

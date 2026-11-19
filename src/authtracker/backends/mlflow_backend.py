@@ -287,6 +287,23 @@ class MlflowBackend(Backend):
         return mlflow.artifacts.download_artifacts(
             artifact_uri=f"models:/{name}@{alias}", dst_path=dst or tempfile.mkdtemp(prefix="authtracker-load-"))
 
+    # ---- moving a model between stores
+    def export_model(self, name, dest):
+        from . import mlflow_transfer
+        return mlflow_transfer.export_model(self.client, name, dest)
+
+    def import_model(self, src, name=None):
+        from . import mlflow_transfer
+        return mlflow_transfer.import_model(self.client, src, name)
+
+    def export_all(self, dest):
+        from . import mlflow_transfer
+        return mlflow_transfer.export_all(self.client, dest)
+
+    def import_all(self, src):
+        from . import mlflow_transfer
+        return mlflow_transfer.import_all(self.client, src)
+
     # ---- registry
     def register(self, run_id, name, model_uri):
         mv = mlflow.register_model(model_uri, name)

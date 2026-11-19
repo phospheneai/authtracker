@@ -52,7 +52,7 @@ def runs(c, model, level=None):
 
 COVERED = {"01_quickstart.py", "02_config_and_dataset.py", "03_registry_and_promotion.py",
            "04_resume_with_checkpoints.py", "05_rules_and_failures.py", "06_code_lineage.py",
-           "07_pytorch_bundle.py", "08_wandb_backend.py"}
+           "07_pytorch_bundle.py", "08_wandb_backend.py", "09_export_import.py"}
 
 
 def test_every_example_has_a_test():
@@ -75,12 +75,11 @@ def test_01_quickstart(data_dir):
     assert version.run_id == best.info.run_id, "production must be the best run"
 
 
-def test_01_runs_again_from_a_clean_state(data_dir):
-    run_example(data_dir, "01_quickstart.py")
-    run_example(data_dir, "01_quickstart.py")                      # fresh=True: the second run must not trip over the first
-    c = client(data_dir, "01_quickstart")
-    assert len(runs(c, "iris", "run")) == 3
-    assert str(c.get_model_version_by_alias("iris", "production").version) == "1"
+def test_an_example_starts_from_a_clean_state_every_time(data_dir):
+    run_example(data_dir, "05_rules_and_failures.py")
+    run_example(data_dir, "05_rules_and_failures.py")             # fresh=True: the second run must not trip over the first
+    c = client(data_dir, "05_rules_and_failures")
+    assert len(runs(c, "fraud-detector", "run")) == 1             # not 2: the first run's data was wiped
 
 
 def test_02_config_and_dataset(data_dir):
@@ -171,3 +170,18 @@ def test_08_wandb_backend(data_dir):
     out = run_example(data_dir, "08_wandb_backend.py").stdout
     assert "best run is C=10" in out
     assert len(list((Path(data_dir) / "08_wandb_backend" / "wandb").glob("offline-run-*"))) == 4
+
+
+def test_09_export_import(data_dir):
+    run_example(data_dir, "09_export_import.py")
+    from mlflow.tracking import MlflowClient
+    folder = Path(data_dir) / "09_export_import"
+    for store, runs_expected, versions_expected in (("old", 3, {"1", "2"}), ("new", 5, {"1", "2", "3"})):
+        uri = f"sqlite:///{folder / (store + '.db')}"
+        c = MlflowClient(tracking_uri=uri, registry_uri=uri)
+        assert len(runs(c, "churn")) == runs_expected, store
+        assert {str(v.version) for v in c.search_model_versions("name='churn'")} == versions_expected, store
+    new = MlflowClient(tracking_uri=f"sqlite:///{folder / 'new.db'}", registry_uri=f"sqlite:///{folder / 'new.db'}")
+    assert str(new.get_model_version_by_alias("churn", "production").version) == "2"
+    imported = [r for r in runs(new, "churn") if "authtracker.imported_run_id" in r.data.tags]
+    assert len(imported) == 3, "the three moved runs say where they came from; the two new ones do not"

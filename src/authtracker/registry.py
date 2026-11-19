@@ -1,6 +1,7 @@
 """Versioning: register, promote (with gates), rollback, load, best_run."""
 from __future__ import annotations
 
+import os
 import shutil
 from typing import Any, Dict, Optional, Union
 
@@ -116,3 +117,42 @@ def load(name: str, alias: str = "production", *, device: str = "cpu", pickle: b
         return bundle.load_dir(folder, device=device, pickle=pickle)
     finally:
         shutil.rmtree(folder, ignore_errors=True)
+
+
+def export_model(name: str, dest: Union[str, "os.PathLike[str]"], *, settings=None, backend=None) -> Dict[str, Any]:
+    """Write model `name` (runs, files, model files, versions, aliases) into the empty folder `dest`.
+
+    Returns a summary. Import the folder into another store with `import_model`. MLflow backend only.
+    """
+    _, b = _ctx(settings, backend)
+    return b.export_model(name, os.fspath(dest))
+
+
+def import_model(src: Union[str, "os.PathLike[str]"], name: Optional[str] = None, *,
+                 settings=None, backend=None) -> Dict[str, Any]:
+    """Read a folder written by `export_model` into the current store, as `name` (default: its own name).
+
+    Refuses to add to a model that already has runs or versions. Run ids and version numbers are new;
+    the result says how old versions map to new ones. MLflow backend only.
+    """
+    _, b = _ctx(settings, backend)
+    return b.import_model(os.fspath(src), name)
+
+
+def export_all(dest: Union[str, "os.PathLike[str]"], *, settings=None, backend=None) -> Dict[str, Any]:
+    """`export_model` for every model that has runs, into one empty folder (one sub-folder per model).
+
+    Returns {"path", "count", "models": {name: summary}}. Import it with `import_all`. MLflow backend only.
+    """
+    _, b = _ctx(settings, backend)
+    return b.export_all(os.fspath(dest))
+
+
+def import_all(src: Union[str, "os.PathLike[str]"], *, settings=None, backend=None) -> Dict[str, Any]:
+    """Import every model of a folder written by `export_all`.
+
+    A model that cannot be imported (for example it already exists here) is listed under "failed" and the
+    others still go in. Returns {"imported": {name: summary}, "failed": {name: reason}, "count"}.
+    """
+    _, b = _ctx(settings, backend)
+    return b.import_all(os.fspath(src))

@@ -312,6 +312,18 @@ class ResilientBackend(Backend):
         return self._read("search_runs",
                           lambda: self.inner.search_runs(experiment, tags, metric, mode, limit))
 
+    def export_model(self, name, dest):
+        return self._read("export_model", lambda: self.inner.export_model(name, dest))
+
+    def import_model(self, src, name=None):
+        return self._read("import_model", lambda: self.inner.import_model(src, name))
+
+    def export_all(self, dest):
+        return self._read("export_all", lambda: self.inner.export_all(dest))
+
+    def import_all(self, src):
+        return self._read("import_all", lambda: self.inner.import_all(src))
+
     def register(self, run_id, name, model_uri):
         return self._read("register",
                           lambda: self.inner.register(self._res(run_id), name, model_uri), run_id)
