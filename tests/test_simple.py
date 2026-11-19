@@ -169,3 +169,38 @@ def test_tags_set_on_the_experiment_reach_later_runs(s):
     assert b.get_run(child.id)["tags"]["only_this_run"] == "x"
     assert "only_this_run" not in b.get_run(later.id)["tags"]      # a run's own tags stay its own
     assert b.get_run(later.id)["tags"]["dataset_sha256"] == "abc"
+
+
+# ------------------------------------------------------------------ set_tracking_uri, like mlflow.set_tracking_uri
+def test_set_tracking_uri_overrides_the_environment_and_goes_back(tmp_path, monkeypatch):
+    monkeypatch.setenv("AUTHTRACKER_TRACKING_URI", "from-the-environment")
+    assert at.get_tracking_uri() == "from-the-environment"
+    at.set_tracking_uri(str(tmp_path / "a"))
+    assert at.get_tracking_uri() == str(tmp_path / "a")           # the call wins over the variable
+    at.configure(None)
+    assert at.get_tracking_uri() == "from-the-environment"
+
+
+def test_set_tracking_uri_keeps_other_settings_and_the_registry_follows_it(tmp_path):
+    at.configure(Settings(backend="local", owner="me", required_tags=("owner",)))
+    at.set_tracking_uri(str(tmp_path / "a"))
+    s = at.get_settings()
+    assert (s.backend, s.owner, s.required_tags) == ("local", "me", ("owner",))
+    assert s.registry_uri is None                                  # None means: same as the tracking store
+    at.set_tracking_uri(str(tmp_path / "b"), registry_uri="somewhere-else")
+    assert at.get_settings().registry_uri == "somewhere-else"
+    at.configure(None)
+
+
+def test_runs_go_to_the_store_that_was_set(tmp_path):
+    at.configure(Settings(backend="local", owner="me", capture_env=False, capture_logs=False, system_metrics=False,
+                          save_code=False, queue_dir=str(tmp_path / "q")))
+    at.set_tracking_uri(str(tmp_path / "a"))
+    at.init("m", "e", dataset_version="v1")
+    at.finish()
+    at.set_tracking_uri(str(tmp_path / "b"))                       # switch (nothing is open) and write somewhere else
+    at.init("m", "e", dataset_version="v1")
+    at.finish()
+    at.configure(None)
+    assert len(list((tmp_path / "a" / "runs").glob("*.json"))) == 1
+    assert len(list((tmp_path / "b" / "runs").glob("*.json"))) == 1

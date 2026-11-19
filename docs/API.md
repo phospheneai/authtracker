@@ -9,7 +9,7 @@ import authtracker as at
 
 Public names: `init`, `start`, `log`, `save`, `restore`, `watch`, `finish`, `set_tags`, `current_run`, `alert`,
 `best_run`, `register`, `promote`, `rollback`, `load`, `export_model`, `import_model`, `export_all`, `import_all`, `load_bundle`, `run`, `Run`, `Settings`,
-`configure`, `get_settings`, and the errors `AuthTrackerError`, `ValidationError`, `PromotionError`,
+`configure`, `get_settings`, `set_tracking_uri`, `get_tracking_uri`, and the errors `AuthTrackerError`, `ValidationError`, `PromotionError`,
 `BackendError`, `UnsupportedError`, `ConfigError`.
 
 - [Tracking](#tracking): `init`, `start`, `log`, `save`, `restore`, `watch`, `set_tags`, `finish`, `current_run`
@@ -17,7 +17,7 @@ Public names: `init`, `start`, `log`, `save`, `restore`, `watch`, `finish`, `set
 - [Moving a model](#moving-a-model-between-stores): `export_model`, `import_model`, `export_all`, `import_all`
 - [Bundles](#bundles): `save(flavor="bundle")`, `load_bundle`
 - [The `with` API](#the-with-api): `run`, `Run`
-- [Settings](#settings): `Settings`, `configure`, `get_settings`
+- [Settings](#settings): `Settings`, `configure`, `get_settings`, `set_tracking_uri`, `get_tracking_uri`
 - [Errors](#errors)
 - [Command line](#command-line)
 - [Writing a backend](#writing-a-backend)
@@ -283,6 +283,22 @@ Sets the settings for the process. `configure(None)` goes back to reading the en
 ### `at.get_settings()`
 
 The settings now in force.
+
+### `at.set_tracking_uri(uri, registry_uri=None)`
+
+Use `uri` as the tracking store from now on, like `mlflow.set_tracking_uri`. It overrides `AUTHTRACKER_TRACKING_URI`
+and keeps your other settings. The registry follows the tracking store unless you pass `registry_uri`. Call it before
+`init`: a run that is already open keeps writing where it started, so `finish()` first if you switch stores.
+`at.configure(None)` goes back to the environment.
+
+```python
+at.set_tracking_uri("https://mlflow.example.com")     # or "sqlite:///mlflow.db", or a folder
+at.init("churn", "baseline", dataset_version="v1")
+```
+
+### `at.get_tracking_uri()`
+
+The tracking store in use now (`None` means the platform's default).
 
 ---
 

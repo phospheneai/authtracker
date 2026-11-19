@@ -9,7 +9,7 @@ import getpass
 import os
 import re
 import warnings
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Mapping, Optional, Tuple
 
 PREFIX = "AUTHTRACKER_"
@@ -187,3 +187,18 @@ def configure(settings: Optional[Settings] = None) -> None:
 
 def get_settings() -> Settings:
     return _configured if _configured is not None else Settings.from_env()
+
+
+def set_tracking_uri(uri: str, registry_uri: Optional[str] = None) -> None:
+    """Use `uri` as the tracking store from now on, like `mlflow.set_tracking_uri`. It overrides
+    AUTHTRACKER_TRACKING_URI, and the registry follows it unless `registry_uri` is given. Call it before `init`:
+    a run that is already open keeps writing where it started. `configure(None)` goes back to the environment."""
+    changes = {"tracking_uri": uri}
+    if registry_uri is not None:
+        changes["registry_uri"] = registry_uri
+    configure(replace(get_settings(), **changes))
+
+
+def get_tracking_uri() -> Optional[str]:
+    """The tracking store in use now (None means the platform's default)."""
+    return get_settings().tracking_uri

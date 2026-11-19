@@ -153,13 +153,20 @@ export WANDB_MODE=offline
 
 ## Setting them from code
 
-For tests and notebooks. This replaces the environment for the process; `configure(None)` goes back to it.
+For tests, notebooks and scripts. Code wins over the environment.
+
+```python
+import authtracker as at
+
+at.set_tracking_uri("https://mlflow.example.com")      # like mlflow.set_tracking_uri: where runs go from now on
+```
+
+For any other setting, replace it on the current settings and `configure` them. `configure(None)` goes back to the
+environment.
 
 ```python
 import dataclasses
-import authtracker as at
 
-settings = dataclasses.replace(at.get_settings(), promote_metric="f1", promote_min=0.8)
-at.configure(settings)
+at.configure(dataclasses.replace(at.get_settings(), promote_metric="f1", promote_min=0.8))
 at.configure(None)
 ```
