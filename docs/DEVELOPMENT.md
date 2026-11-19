@@ -10,7 +10,7 @@ git clone https://github.com/phospheneai/authtracker.git && cd authtracker
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"          # authtracker, MLflow, W&B, scikit-learn, pytest, ruff
 pip install torch                # optional: the PyTorch bundle, watch and example 07 tests
-pytest -q -n auto                # about 3 minutes on 4 CPUs (7+ minutes without -n)
+pytest -q -n auto                # about 1 to 2 minutes on 4 CPUs (7+ minutes serially, before the speed-ups)
 ```
 
 Python 3.10 or newer. Without torch, the tests that need it are skipped, not failed.
@@ -70,6 +70,10 @@ ruff check src tests               # lint
 Add a test with every change. Backend behaviour is tested against `local`, `mlflow` and `wandb` (offline) with
 the same test, using a `params=[...]` fixture, so a feature that only works on one is caught. What has and has not
 been tried on real hardware is in [tests/TESTING.md](../tests/TESTING.md).
+
+`tests/conftest.py` switches off MLflow's pip-requirements inference for the whole session. MLflow loads the model
+in a subprocess to find its requirements, which costs 7 to 11 seconds on every `save(model)`, and no test needs the
+result. (Your own code still pays it. Pass `pip_requirements=[...]` to `at.save` to skip it.)
 
 Tests run in parallel, so each one must use its own folder (`tmp_path`) and never rely on another test's leftovers.
 A fixture that is expensive to build and only read (like the model store in `test_transfer.py`) is built once per
