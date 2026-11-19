@@ -1,19 +1,126 @@
 # authtracker user guide
 
-The full guide to every feature. For a short introduction see the [README](../README.md); for exact signatures see the [API reference](API.md); for every environment variable see [Configuration](CONFIGURATION.md).
+**Start here** is a cheat sheet: one call per line, grouped by what you are trying to do. Everything after it is the
+detailed reference. For exact signatures see the [API reference](API.md); for every setting see
+[Settings](CONFIGURATION.md).
 
-Experiment tracking and model versioning with a handful of calls. The same code runs on
-**MLflow** (the default) or **Weights & Biases**: you switch with one environment variable.
-Settings come only from environment variables, and other platforms can be plugged in.
+## Start here
 
-Every run lives in three levels:
+### The data model
+
+Three levels, so a project name, an idea you are testing and a single attempt never get mixed up:
 
 ```
-fake-image                  <- model        (an MLflow experiment)
-└── baseline                <- experiment   (a parent run)
-    ├── lr0.01              <- run          (a child run: metrics, files, model)
+churn                       model        MLflow experiment / W&B project
+└── baseline                experiment   parent run: lineage files shared by its runs
+    ├── lr0.01              run          child run: metrics, params, files, model
     └── lr0.001
 ```
+
+`at.init` opens the experiment, `at.start` opens a run under it. `at.log`, `at.save` and `at.log_model` write to the
+current run, or to the experiment with `experiment=True`. A model is the name of the project, not an artifact.
+
+### Common tasks
+
+One call per line. Pick what you need.
+
+**Track a run**
+```python
+at.init("churn", "baseline", dataset_version="v1")   # open the experiment
+at.start("lr0.01", config={"lr": 0.01})              # open a run; its config is logged as params
+at.log({"loss": 0.4, "accuracy": 0.9})               # metrics; the step counts up by itself
+at.log({"loss": 0.3}, step=10)                       # explicit step
+at.set_tags({"stage": "finetune"})                   # tags
+```
+
+**Save files** (artifacts, not models)
+```python
+at.save("confusion_matrix.png")                      # a file
+at.save("reports/")                                  # the files directly in a folder
+at.save("epoch 1 done\n", name="train.log")          # text
+```
+
+**Log a model** (it is linked to the run that made it)
+```python
+at.log_model(clf)                                              # sklearn, PyTorch, XGBoost, LightGBM, ...
+at.log_model(net, flavor="bundle", init_args={"hidden": 32})   # PyTorch: your architecture file + weights
+at.log_model("weights.pth")                                    # a file or folder as a model: no loader, load() returns a folder
+```
+
+**Pick the best, ship it, undo it**
+```python
+best = at.best_run("churn", "baseline", metric="f1")  # mode="min" for losses
+version = at.register(best)                           # a new model version
+at.promote("churn", version, "production")            # alias; gated by your rules, see Settings
+model = at.load("churn", "production")                # by alias, never by run id
+at.rollback("churn")                                  # production -> the previous version
+```
+
+**Share across runs** (write to the experiment instead of one run)
+```python
+at.save("labels.json", experiment=True)               # a file shared by every run of the experiment
+at.log({"best_lr": 0.01}, experiment=True)            # a result about the whole experiment
+at.set_tags({"owner": "vision"}, experiment=True)
+```
+A library model (sklearn, ...) can go to the experiment only before the first `at.start`. A bundle, a file or a folder can go any time.
+
+**Tie a run to its config and data**
+```python
+at.init("churn", "baseline", config="train.yaml")                                            # YAML -> params; the file is kept
+at.init("churn", "baseline", dataset={"name": "photos", "version": "v3", "path": "data/"})   # name, version, hash
+```
+
+**Pick up after a crash**
+```python
+at.init("churn", "baseline", resume=True)             # continue the earlier experiment run
+at.start("lr0.01", resume=True)                       # and the earlier run of that name: steps carry on
+path = at.restore("ckpt.pt")                          # the checkpoint you saved with at.save, or None
+```
+
+**PyTorch**
+```python
+at.watch(net, every=100)                              # gradient norm per layer, as metrics
+net = at.load("churn", "production")                  # a bundle comes back as your own class
+net = at.load_bundle("downloaded-folder")             # a bundle with no server
+```
+
+**Point at a server, or move to another one**
+```python
+at.set_tracking_uri("https://mlflow.example.com")     # before at.init; like mlflow.set_tracking_uri
+```
+```
+authtracker export churn --out churn-export                              # one model: runs, metrics, files, versions, aliases
+authtracker import churn-export --tracking-uri https://new.example.com   # add --all to either for every model
+authtracker doctor                                                       # is the backend reachable?
+```
+
+**Get paged** (a webhook; with none set, nothing is sent)
+```
+export AUTHTRACKER_ALERT_WEBHOOK='https://...'        # a secret: keep it out of code and git
+export AUTHTRACKER_ALERT_ON=failed,finished           # failed, stopped, finished, custom
+authtracker test-alert                                # one test message
+```
+```python
+at.alert("Loss is NaN", "epoch 3", level="error")     # your own message
+```
+
+**Keep a team honest** (a violation is refused before anything is saved)
+```
+export AUTHTRACKER_ALLOWED_MODELS=churn,fraud
+export AUTHTRACKER_REQUIRED_TAGS=owner,dataset_version
+export AUTHTRACKER_PROMOTE_METRIC=f1 AUTHTRACKER_PROMOTE_MIN=0.8
+```
+
+**Backend**
+```
+export AUTHTRACKER_BACKEND=wandb                      # same code; tracking and files work, the registry does not yet
+```
+
+**Where the lineage is.** Each run carries tags such as `git_sha`, `git_dirty` and `dataset_hash`. The files that rebuild
+a run exactly (the script, the uncommitted patch, the config, the package list) are on the **experiment's** Artifacts
+tab, shared by its runs.
+
+---
 
 ## Install
 
