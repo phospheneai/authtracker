@@ -1,0 +1,13 @@
+# A training config. Everything outside the "authtracker:" block is saved as parameters of the run.
+authtracker:                 # where this run belongs (arguments to at.init(...) override these)
+  model: classifier-demo
+  experiment: full-demo
+  tags:
+    team: ml-platform
+
+task: binary-classification
+epochs: 8
+optimizer:
+  name: sgd-logistic-regression
+  loss: log_loss
+split: {train: 0.6, val: 0.2, test: 0.2}

@@ -1,0 +1,38 @@
+    [build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "authtracker"
+version = "0.1.0"
+description = "Backend-independent, variable-configured experiment tracking and model versioning on top of MLflow."
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["mlflow", "wandb", "experiment-tracking", "model-registry", "mlops", "machine-learning"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = ["pyyaml", "cloudpickle"]      # the backend is chosen with an extra: [mlflow], [mlflow-skinny] or [wandb]
+
+[project.optional-dependencies]
+mlflow = ["mlflow>=3.0", "psutil"]            # the default backend: full MLflow (can also run a server or a local SQLite store)
+mlflow-skinny = ["mlflow-skinny>=3.0", "psutil"]   # light client: only sends runs to an existing MLflow server
+wandb = ["wandb>=0.19.10"]            # Weights & Biases backend
+gpu = ["pynvml"]                      # also chart NVIDIA GPU use in the system metrics
+dev = ["pytest>=7", "scikit-learn", "wandb>=0.19.10", "mlflow>=3.0", "psutil"]
+
+[project.scripts]
+authtracker = "authtracker.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

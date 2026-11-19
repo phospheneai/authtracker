@@ -1,0 +1,40 @@
+# generated files: do not publish
+__pycache__/
+*.py[cod]
+.pytest_cache/
+build/
+dist/
+*.egg-info/
+.venv/
+
+# data written by the examples and by tracking tools
+examples/data/
+mlruns/
+mlartifacts/
+wandb/
+*.db
+.authtracker/
+
+# virtualenvs / env files
+venv/
+env/
+.env
+.env.*
+
+# test / coverage / tooling caches
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# packaging
+*.egg
+.eggs/
+
+# notebooks / editors / OS
+.ipynb_checkpoints/
+.idea/
+.vscode/
+.DS_Store
