@@ -37,7 +37,7 @@ jobs:
           pip install -e ".[dev]"
           # CPU-only PyTorch, so the bundle tests run instead of being skipped
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pytest -q
+          pytest -q -n auto   # tests run in parallel, one worker per CPU
 
       - name: Bump patch version
         id: bump

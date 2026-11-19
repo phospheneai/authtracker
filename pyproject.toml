@@ -30,7 +30,7 @@ mlflow = ["mlflow>=3.0,<4", "psutil"]            # the default backend: full MLf
 mlflow-skinny = ["mlflow-skinny>=3.0,<4", "psutil"]   # light client: only sends runs to an existing MLflow server
 wandb = ["wandb>=0.19.10,<1"]          # Weights & Biases backend
 gpu = ["pynvml"]                      # also chart NVIDIA GPU use in the system metrics
-dev = ["pytest>=7", "ruff>=0.5", "scikit-learn", "wandb>=0.19.10,<1", "mlflow>=3.0,<4", "psutil"]
+dev = ["pytest>=7", "pytest-xdist", "ruff>=0.5", "scikit-learn", "wandb>=0.19.10,<1", "mlflow>=3.0,<4", "psutil"]
 
 [project.urls]
 Homepage = "https://github.com/phospheneai/authtracker"
