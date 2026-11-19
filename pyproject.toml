@@ -26,10 +26,11 @@ classifiers = [
 dependencies = ["pyyaml>=6,<7", "cloudpickle>=3,<4"]
 
 [project.optional-dependencies]
-mlflow = ["mlflow>=3.0,<4", "psutil"]            # the default backend: full MLflow (can also run a server or a local SQLite store)
-mlflow-skinny = ["mlflow-skinny>=3.0,<4", "psutil"]   # light client: only sends runs to an existing MLflow server
+# nvidia-ml-py (it provides `import pynvml`) lets MLflow chart NVIDIA GPU use. It does nothing without an NVIDIA driver, and Macs have none, so it is skipped there.
+mlflow = ["mlflow>=3.0,<4", "psutil", "nvidia-ml-py; sys_platform != 'darwin'"]            # the default backend: full MLflow (can also run a server or a local SQLite store)
+mlflow-skinny = ["mlflow-skinny>=3.0,<4", "psutil", "nvidia-ml-py; sys_platform != 'darwin'"]   # light client: only sends runs to an existing MLflow server
 wandb = ["wandb>=0.19.10,<1"]          # Weights & Biases backend
-gpu = ["pynvml"]                      # also chart NVIDIA GPU use in the system metrics
+gpu = ["nvidia-ml-py"]                      # kept for older install lines: the mlflow extras already include it (not on macOS)
 dev = ["pytest>=7", "pytest-xdist", "ruff>=0.5", "scikit-learn", "wandb>=0.19.10,<1", "mlflow>=3.0,<4", "psutil"]
 
 [project.urls]

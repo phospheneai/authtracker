@@ -36,6 +36,15 @@ def test_the_tracking_platform_is_chosen_with_an_extra():
     assert any(r.startswith("psutil") for r in extras["mlflow"] + extras["mlflow-skinny"])
 
 
+def test_gpu_charts_come_with_the_mlflow_extras_except_on_macs():
+    raw = metadata.requires("authtracker") or []              # with their markers, which _requirements() strips
+    for extra in ("mlflow", "mlflow-skinny"):
+        found = [r for r in raw if r.lower().startswith("nvidia-ml-py") and f"extra == '{extra}'" in r]
+        assert found, f"nvidia-ml-py (the module pynvml) should come with the {extra} extra"
+        assert all("sys_platform != 'darwin'" in r for r in found), "a Mac has no NVIDIA GPU: do not install it there"
+    assert [r for r in raw if r.lower().startswith("nvidia-ml-py") and "extra == 'gpu'" in r], "the old [gpu] extra still works"
+
+
 def test_database_uri_needs_the_full_mlflow(monkeypatch):
     pytest.importorskip("mlflow")
     real = importlib.util.find_spec
