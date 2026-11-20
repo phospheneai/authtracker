@@ -128,7 +128,9 @@ version = at.register(experiment_run)
 ### `at.restore(name, folder=None)`
 
 Downloads the file `name` the current run saved earlier (a checkpoint, say) and returns its local path, or
-`None` if there is no such file. `folder` defaults to a new temporary folder.
+`None` if there is no such file. The current run is the one you `start`ed; before the first `start` it is the
+experiment. So for a checkpoint saved during training, call it after `at.start(name)`. `folder` defaults to a new
+temporary folder.
 
 ### `at.watch(model, every=100)`
 

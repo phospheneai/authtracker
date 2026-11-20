@@ -72,8 +72,9 @@ at.init("churn", "baseline", dataset={"name": "photos", "version": "v3", "path":
 
 **Pick up after a crash**
 ```python
-at.init("churn", "baseline", resume=True)             # continue the earlier experiment and its runs
-path = at.restore("ckpt.pt")                          # the checkpoint you saved with at.save, or None
+at.init("churn", "baseline", resume=True)             # continue the earlier experiment
+at.start("lr0.01")                                    # ...and its earlier run of this name; steps carry on
+path = at.restore("ckpt.pt")                          # that run's last saved checkpoint, or None
 ```
 
 **PyTorch**
@@ -320,6 +321,8 @@ What a resume does, and does not do:
   when the run has no such file. The same script then works the first time and after every restart:
 
   ```python
+  at.init("detector", "baseline", resume=True)
+  at.start("abc")                                  # the run the checkpoint was saved on
   path = at.restore("ckpt.pt")
   start = torch.load(path)["epoch"] + 1 if path else 0
   for epoch in range(start, 100):

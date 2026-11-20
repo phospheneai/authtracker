@@ -112,8 +112,9 @@ at.set_tags({"owner": "vision"}, experiment=True)
 
 **Pick up after a crash**
 ```python
-at.init("churn", "baseline", resume=True)       # continue the earlier experiment run, steps carry on
-path = at.restore("ckpt.pt")                    # the last checkpoint you saved, or None
+at.init("churn", "baseline", resume=True)       # continue the earlier experiment
+at.start("lr0.01")                              # ...and its earlier run of this name; steps carry on
+path = at.restore("ckpt.pt")                    # that run's last saved checkpoint, or None
 ```
 
 **Point at a server, or move to another one**
