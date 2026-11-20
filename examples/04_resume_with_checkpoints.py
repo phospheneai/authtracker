@@ -2,9 +2,9 @@
 
     python examples/04_resume_with_checkpoints.py
 
-Shows: init(resume=True), steps that carry on, at.save of a checkpoint and at.restore of it, parameters
-that may be repeated but not changed, and a new run when you ask for one. The "interruption" is
-simulated by closing the run half way, which is what a killed job leaves behind.
+Shows: init(resume=True), steps that carry on, at.save of a checkpoint and at.restore of it, and parameters
+that may be repeated but not changed. The "interruption" is simulated by closing the run half way, which is
+what a killed job leaves behind.
 """
 import json
 from pathlib import Path
@@ -73,11 +73,3 @@ try:
 except at.ValidationError as error:
     ok(f"refused: {error}")
 at.finish()
-
-section("4. resume=False on start() makes a new run next to the old one")
-at.init(MODEL, EXPERIMENT, dataset_version="synthetic-v1", resume=True, config={"lr": 0.1})
-at.start("main", resume=False)
-at.finish()
-_, parents, children = runs()
-assert len(parents) == 1 and len(children) == 2
-ok("one experiment run, now with two runs named 'main'")

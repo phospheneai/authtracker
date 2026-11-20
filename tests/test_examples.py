@@ -115,7 +115,7 @@ def test_04_resume_with_checkpoints(data_dir):
     c = client(data_dir, "04_resume_with_checkpoints")
     assert len(runs(c, "regressor", "experiment")) == 1
     children = runs(c, "regressor", "run")
-    assert len(children) == 2
+    assert len(children) == 1
     resumed = [r for r in children if r.data.tags.get("resumed") == "true"]
     assert len(resumed) == 1
     steps = sorted(m.step for m in c.get_metric_history(resumed[0].info.run_id, "loss"))

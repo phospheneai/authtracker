@@ -51,17 +51,17 @@ at.init(model=None, experiment=None, *, config=None, dataset=None, dataset_versi
 | `save_code` | `AUTHTRACKER_SAVE_CODE` | Save the uncommitted changes and the running script. |
 | `image` | `AUTHTRACKER_IMAGE` | The container image, ideally `name@sha256:...`. |
 | `system_metrics` | `AUTHTRACKER_SYSTEM_METRICS` | Record CPU, memory and GPU use. |
-| `resume` | `False` | Continue the latest earlier experiment run of the same model, experiment and owner, if there is one. |
+| `resume` | `False` | Continue the latest earlier experiment run of the same model, experiment and owner, and its runs with the same names, if there are any. |
 | `settings` | from the environment | A full `Settings` object. |
 
 Arguments to `init` override the `authtracker:` block of a YAML. A misspelled key in that block is an error.
 Returns the experiment `Run`. Raises `ValidationError` when `model` or `experiment` is missing or a rule is broken.
 
-### `at.start(name=None, config=None, resume=None)`
+### `at.start(name=None, config=None)`
 
 Starts a run (one trial) inside the experiment and closes the previous one. `name` defaults to `run-<n>`.
-`config` is a dict of parameters. `resume=True` continues the latest earlier run of the same name under this
-experiment run; left out, it follows `init(resume=...)`. Returns the `Run`.
+`config` is a dict of parameters. After `init(..., resume=True)`, an earlier run with the same name is continued.
+Returns the `Run`.
 
 ### `at.log(metrics, step=None, *, experiment=False)`
 

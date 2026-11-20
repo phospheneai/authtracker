@@ -72,8 +72,7 @@ at.init("churn", "baseline", dataset={"name": "photos", "version": "v3", "path":
 
 **Pick up after a crash**
 ```python
-at.init("churn", "baseline", resume=True)             # continue the earlier experiment run
-at.start("lr0.01", resume=True)                       # and the earlier run of that name: steps carry on
+at.init("churn", "baseline", resume=True)             # continue the earlier experiment and its runs
 path = at.restore("ckpt.pt")                          # the checkpoint you saved with at.save, or None
 ```
 
@@ -301,7 +300,8 @@ for epoch in range(10):
 ```
 
 Run that script a second time and there is still **one** `baseline` run and **one** `abc` run, with its loss curve
-continuing instead of restarting. `start(..., resume=False)` makes a new run even when `init` was given `resume=True`.
+continuing instead of restarting.
+
 
 How it matches: the same **model, experiment and owner**, and for a run also the same **name** under that
 experiment run. Someone else's runs are never continued. If several earlier runs match, the newest one is used.
@@ -346,7 +346,7 @@ Environment variables (see [Configuration](CONFIGURATION.md)) only set *defaults
 | `save_code` | Store the uncommitted changes and your script (a file that looks like a secret is skipped) | `True` |
 | `image` | The container image, ideally `name@sha256:...` | found from the platform, if possible |
 | `system_metrics` | Record CPU, memory and GPU use while the run is open | `True` |
-| `resume` | Continue the earlier experiment run (and, in `start`, the earlier run of the same name) if there is one, otherwise start fresh | `False` |
+| `resume` | Continue the earlier experiment run and its runs with the same names, if there are any; otherwise start fresh | `False` |
 | `settings` | A full `Settings(...)` object, for anything else | read from the environment |
 
 ## What to log

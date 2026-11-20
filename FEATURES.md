@@ -41,7 +41,7 @@ Registry
 
 Resume
 - `at.init(..., resume=True)` continues the last matching run, or starts a new one if there is none.
-- `at.start(name, resume=...)` does the same for a run inside the experiment.
+- Runs started in a resumed experiment continue the earlier runs with the same names.
 - Steps carry on from the last logged step.
 - `at.restore(name)` downloads a file the run saved earlier (a checkpoint, say) and returns its path, or `None`.
 - Params can be repeated or added on resume, but not changed.

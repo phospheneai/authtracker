@@ -110,8 +110,7 @@ def init(model: Optional[str] = None, experiment: Optional[str] = None, *,
     system_metrics  record CPU, memory and GPU use. Default True: pass system_metrics=False to switch it off
              (for example on the ranks of a multi-GPU job that are not tracking).
     resume   continue the latest earlier experiment run of this model and experiment (yours), if there is one,
-             and start a new one if not. The runs you start() afterwards continue earlier runs of the same
-             name by default; pass resume=False to start() to make a new one.
+             and the runs you start() in it with the same names.
     """
     global _state
     finish()
@@ -151,17 +150,15 @@ def init(model: Optional[str] = None, experiment: Optional[str] = None, *,
     return parent
 
 
-def start(name: Optional[str] = None, config: Optional[Mapping[str, Any]] = None,
-          resume: Optional[bool] = None) -> Run:
+def start(name: Optional[str] = None, config: Optional[Mapping[str, Any]] = None) -> Run:
     """Start a run (one trial) inside the experiment. Closes the previous run.
 
-    resume=True continues the latest earlier run of this name under this experiment run, or starts a new one
-    if there is none. Left out, it follows the `resume` you gave to init().
+    After `init(..., resume=True)`, an earlier run with the same name is continued instead of starting a new one.
     """
     s = _need()
     _close_child(s)
     s.count += 1
-    cm = s.parent.child(name or f"run-{s.count}", params=config, resume=s.resume if resume is None else resume)
+    cm = s.parent.child(name or f"run-{s.count}", params=config, resume=s.resume)
     s.child = cm.__enter__()
     s.child_cm = cm
     _continue_steps(s, s.child)

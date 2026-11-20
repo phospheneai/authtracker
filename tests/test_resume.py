@@ -113,21 +113,10 @@ def test_a_different_name_is_a_new_run_under_the_resumed_experiment(s):
     assert (_count(s, "experiment"), _count(s, "run")) == (1, 2)
 
 
-def test_start_can_override_the_default_of_init(s):
-    p1, c1 = session(s, 2)
-    parent = at.init("m1", "exp", dataset_version="v1", resume=True, settings=s)
-    child = at.start("abc", resume=False)                            # a new run under the resumed experiment
-    at.finish()
-    assert parent.id == p1 and child.id != c1
-    assert _count(s, "run") == 2
-
-
-def test_resume_can_be_asked_for_on_start_only(s):
-    session(s, 2, resume=False)
-    parent = at.init("m1", "exp", dataset_version="v1", settings=s)               # a new experiment run ...
-    child = at.start("abc", resume=True)                             # ... so there is no earlier 'abc' under it
-    at.finish()
-    assert _count(s, "experiment") == 2 and _count(s, "run") == 2 and "resumed" not in child.tags
+def test_start_has_no_resume_argument(s):
+    at.init("m1", "exp", dataset_version="v1", resume=True, settings=s)
+    with pytest.raises(TypeError):
+        at.start("abc", resume=False)                                # resuming is decided by init only
 
 
 def test_other_people_s_runs_are_not_resumed(s):
@@ -176,7 +165,7 @@ def test_a_resumed_run_may_repeat_and_add_parameters_but_not_change_them(s):
         at.init("m1", "exp", dataset_version="v1", resume=True, config={"lr": 0.01}, settings=s)
     with pytest.raises(at.ValidationError, match="epochs was 5 and is now 50"):
         at.init("m1", "exp", dataset_version="v1", resume=True, settings=s)
-        at.start("abc", config={"epochs": 50}, resume=True)
+        at.start("abc", config={"epochs": 50})
     at.finish()
     after = {r["id"]: r["status"] for r in _all_runs(s)}
     assert {k: v for k, v in after.items() if k in before and v != "RUNNING"} == \
